@@ -3,7 +3,7 @@
   "name": "MiGPT Channel",
   "description": "小米小爱音箱 OpenClaw Channel 插件",
   "channels": ["migpt"],
-  "skills": ["./skills/migpt-volume"],
+  "skills": ["./skills/migpt-speaker-control", "./skills/migpt-smart-home"],
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

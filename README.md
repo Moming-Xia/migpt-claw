@@ -170,7 +170,10 @@ migpt-claw/
 │       ├── io.ts          # 文件 IO
 │       └── parse.ts       # 解析工具
 └── skills/
-    └── migpt-volume/       # 音量控制技能
+    ├── migpt-speaker-control/   # 小爱音箱全能控制技能
+    │   ├── index.ts
+    │   └── SKILL.md
+    └── migpt-smart-home/        # 小米智能家居设备控制技能
         ├── index.ts
         └── SKILL.md
 ```

@@ -1,14 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { MiService } from './service.js';
 import { firstOf, lastOf } from './utils/parse.js';
-
-export interface IMessage {
-  id: string;
-  sender: 'user';
-  text: string;
-  timestamp: number;
-  deviceId: string;
-}
+import { IMessage } from './types.js';
 
 class _MiMessage {
   private _lastQueryMsg: Record<string, IMessage | undefined> = {};
@@ -162,6 +155,7 @@ class _MiMessage {
         text: e.query,
         timestamp: e.time,
         deviceId,
+        answers: e.answers,
       };
     });
   }

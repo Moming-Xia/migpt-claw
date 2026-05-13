@@ -204,15 +204,19 @@ export class LocalDebugContext {
       if (conversations && conversations.records.length > 0) {
         logger.success(`获取到 ${conversations.records.length} 条对话`);
 
-        conversations.records.forEach((record, index) => {
-          console.log(`\n  [${index + 1}] 用户: ${record.query}`);
-          record.answers.forEach((answer) => {
-            const content = answer.tts || answer.url || '(音频内容)';
-            console.log(`      小爱: ${content.substring(0, 100)}`);
-          });
-          console.log(`      时间: ${new Date(record.time).toLocaleString('zh-CN')}`);
-        });
+        // 使用 JSON 格式化输出完整对话数据
+        const formattedRecords = conversations.records.map((record, index) => ({
+          index: index + 1,
+          query: record.query,
+          answers: record.answers.map(a => ({
+            type: a.type,
+            text: a.tts || a.url || '(无文本内容)'
+          })),
+          timestamp: new Date(record.time).toLocaleString('zh-CN')
+        }));
 
+        console.log(JSON.stringify(formattedRecords, null, 2));
+        
         logger.info('', `分页信息: hasMore=${conversations.hasMore}, cursor=${conversations.cursor}`);
       } else {
         logger.warning('暂无对话记录');

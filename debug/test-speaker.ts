@@ -75,11 +75,7 @@ async function main() {
     const messages = await MiMessage.getHistoryMessages(deviceId, 10);
     if (messages.length > 0) {
       logger.success(`获取到 ${messages.length} 条对话`);
-      messages.slice(0, 3).forEach((msg, i) => {
-        console.log(
-          `  [${i + 1}] ${msg.text} (${new Date(msg.timestamp).toLocaleString('zh-CN')})`
-        );
-      });
+      console.log(messages);
     } else {
       logger.warning('暂无对话记录');
     }
@@ -120,7 +116,12 @@ async function main() {
   logger.title('所有测试完成');
 }
 
-main().catch((err) => {
-  logger.error('发生错误', err);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    logger.success('✅ 脚本执行完成');
+    process.exit(0);
+  })
+  .catch((err) => {
+    logger.error('发生错误', err);
+    process.exit(1);
+  });

@@ -4,6 +4,7 @@
 
 这个 Skill 为龙虾（OpenClaw）提供对小米智能家居设备的**完整控制能力**，支持：
 
+- 🔍 **设备发现**：搜索设备、查看设备支持的协议
 - 📱 **设备管理**：获取设备列表、查看在线状态
 - 🔌 **属性操作**：获取和设置设备属性
 - 🎬 **动作执行**：调用设备的各种动作
@@ -18,7 +19,28 @@
 - 🎚️ 调光开关
 - ...以及任何 MIoT 协议设备
 
+---
+
 ## 核心概念
+
+### MiNA 与 MIoT 协议区别
+
+小米设备使用两种不同的通信协议，设备在缓存中会标识其支持的协议类型：
+
+| 特性 | MiNA 协议 | MIoT 协议 |
+|------|-----------|-----------|
+| **全称** | Mi Network Audio | Mi Internet of Things |
+| **适用设备** | 小爱音箱等语音设备 | 智能家居设备（灯、插座、传感器等） |
+| **核心能力** | TTS 播放、音量控制、媒体播放、对话轮询 | 属性读写（siid/piid）、动作调用（aiid）、RPC |
+| **数据模型** | 基于 ubus 服务调用 | 基于 siid/piid/aiid 的规范模型 |
+| **设备标识** | `deviceID`（UUID 格式） | `did`（数字 ID） |
+| **通信方式** | HTTP API + WebSocket | HTTP API（加密） |
+| **本 Skill 支持** | ⚠️ 仅设备发现，不支持属性控制 | ✅ 完整支持属性读写、动作调用 |
+
+**重要提示：**
+- **MiNA 设备**（如小爱音箱）不支持 siid/piid 属性读写操作，只能通过 speaker-control skill 进行 TTS 播放、音量控制等
+- **MIoT 设备**（如智能灯、插座）支持完整的属性读写和动作调用，是本 Skill 的主要控制对象
+- 每个设备在缓存中都有 `protocol` 字段标识其协议类型，工具调用时会**自动校验协议兼容性**
 
 ### MIoT 协议基础
 
@@ -30,7 +52,7 @@
 
 **示例：**
 ```
-灯光设备
+灯光设备（MIoT 协议）
 ├── Service (siid=2)：灯光服务
 │   ├── Property (piid=1)：开关状态
 │   ├── Property (piid=2)：亮度
@@ -39,37 +61,33 @@
 │   └── Property (piid=1)：电源状态
 ```
 
-### 如何查找 siid/piid
+### 如何查找设备 ID 和 siid/piid
 
-1. **米家 App 方式**：
-   - 打开米家 App
-   - 进入设备详情 → 更多设置 → 关于本设备
-   - 查找"模型信息"中的规范定义
+1. **先找到设备 ID**：
+   - 调用 `find_device` 搜索设备名称，获取 `id` 和 `protocol`
+   - 或调用 `get_cached_devices` 查看所有设备
 
-2. **官方文档**：
-   - 访问 https://miot-spec.org/
-   - 搜索你的设备型号
-   - 查看 Service 和 Property 的 ID 定义
-
-3. **反向工程**：
-   - 使用米家官方提供的设备规范
-   - 联系小米客服获取
+2. **再查找 siid/piid**：
+   - **米家 App 方式**：打开米家 App → 设备详情 → 更多设置 → 关于本设备 → 查找"模型信息"
+   - **官方文档**：访问 https://miot-spec.org/ 搜索设备型号
+   - **反向工程**：使用米家官方提供的设备规范
 
 ---
 
 ## 可用工具（Tools）
 
-### 设备管理
+### 设备发现
 
-#### 1. `get_device_list` - 获取设备列表
+#### 1. `find_device` - 搜索设备（推荐首先调用）
 
-获取账户下的所有小米设备列表。
+搜索设备并返回设备信息（含支持的协议标识）。**控制设备前应先调用此工具确认设备及其协议。**
 
-**参数：** 无
+**参数：**
+- `keyword` (string, 必需)：搜索关键词（设备名称、型号、MAC 地址或设备 ID）
 
 **示例：**
 ```
-列出所有小米设备
+搜索"客厅灯"
 ```
 
 **返回：**
@@ -79,44 +97,92 @@
   "data": {
     "devices": [
       {
-        "deviceId": "123456789",
+        "id": "1126316381",
         "name": "客厅灯",
         "model": "philips.light.bulb",
-        "type": "light.color-bulb",
-        "status": "online",
-        "online": true,
-        "category": "light"
-      },
-      {
-        "deviceId": "987654321",
-        "name": "书房插座",
-        "model": "lumi.plug",
-        "type": "switch.outlet",
-        "status": "online",
-        "online": true,
-        "category": "switch"
+        "protocol": "miot",
+        "online": true
       }
     ],
+    "total": 1,
+    "hint": "找到设备「客厅灯」，协议: miot，可使用其 id 调用控制工具"
+  }
+}
+```
+
+**注意：** 如果设备的 `protocol` 为 `mina`，说明这是 MiNA 协议设备（如小爱音箱），不支持本 Skill 的属性读写操作，应使用 speaker-control skill。
+
+---
+
+### 设备缓存
+
+#### 2. `get_cached_devices` - 获取缓存设备列表
+
+获取缓存的所有家居设备列表（含协议标识）。
+
+**参数：** 无
+
+**返回：**
+```json
+{
+  "success": true,
+  "data": {
+    "devices": [
+      {
+        "id": "a7e7cc2b-...",
+        "name": "Xiaomi 智能音箱 Pro",
+        "protocol": "mina",
+        "online": true
+      },
+      {
+        "id": "1126316381",
+        "name": "客厅灯",
+        "protocol": "miot",
+        "online": true
+      }
+    ],
+    "minaCount": 1,
+    "miotCount": 1,
     "total": 2
   }
 }
 ```
 
+#### 3. `get_device_cache_stats` - 获取缓存统计
+
+获取设备缓存的统计信息。
+
+**参数：** 无
+
+#### 4. `search_devices` - 搜索设备（按协议分组）
+
+搜索指定名称或型号的设备（按协议分组返回）。
+
+**参数：**
+- `keyword` (string, 必需)：搜索关键词
+
+#### 5. `refresh_device_cache` - 刷新设备缓存
+
+刷新设备缓存，重新查询所有家居设备。
+
+**参数：** 无
+
 ---
 
 ### 属性操作
 
-#### 2. `get_property` - 获取属性值
+#### 7. `get_property` - 获取属性值
 
-获取 MIoT 设备的某个属性的当前值。
+获取 MIoT 设备的某个属性的当前值。**自动根据设备 ID 选择协议，MiNA 设备会返回协议不兼容提示。**
 
 **参数：**
 - `siid` (number, 必需)：Service ID
 - `piid` (number, 必需)：Property ID
+- `did` (string, 可选)：目标设备 ID（不传则使用默认音箱设备）
 
 **示例：**
 ```
-获取客厅灯的开关状态（假设 siid=2, piid=1）
+获取客厅灯的开关状态（假设 did="1126316381", siid=2, piid=1）
 ```
 
 **返回：**
@@ -124,25 +190,36 @@
 {
   "success": true,
   "data": {
+    "did": "1126316381",
     "siid": 2,
     "piid": 1,
-    "value": true
+    "value": true,
+    "protocol": "miot"
   }
 }
 ```
 
-#### 3. `set_property` - 设置属性值
+**错误示例（MiNA 设备）：**
+```json
+{
+  "success": false,
+  "error": "设备 xxx 使用 MiNA 协议，不支持属性读写操作（siid/piid）。MiNA 设备仅支持 TTS 播放、音量控制等功能"
+}
+```
 
-设置 MIoT 设备的某个属性值。
+#### 8. `set_property` - 设置属性值
+
+设置 MIoT 设备的某个属性值。**自动根据设备 ID 选择协议。**
 
 **参数：**
 - `siid` (number, 必需)：Service ID
 - `piid` (number, 必需)：Property ID
 - `value` (任意类型, 必需)：要设置的值
+- `did` (string, 可选)：目标设备 ID
 
 **示例：**
 ```
-将客厅灯的亮度设置为 80%（假设 siid=2, piid=2）
+将客厅灯的亮度设置为 80%（假设 did="1126316381", siid=2, piid=2）
 ```
 
 **返回：**
@@ -151,9 +228,11 @@
   "success": true,
   "message": "属性已设置为 80",
   "data": {
+    "did": "1126316381",
     "siid": 2,
     "piid": 2,
-    "value": 80
+    "value": 80,
+    "protocol": "miot"
   }
 }
 ```
@@ -162,14 +241,15 @@
 
 ### 动作执行
 
-#### 4. `do_action` - 执行设备动作
+#### 9. `do_action` - 执行设备动作
 
-调用 MIoT 设备的某个动作。
+调用 MIoT 设备的某个动作。**自动根据设备 ID 选择协议。**
 
 **参数：**
 - `siid` (number, 必需)：Service ID
 - `aiid` (number, 必需)：Action ID
 - `args` (array, 可选)：动作的参数数组，默认为空
+- `did` (string, 可选)：目标设备 ID
 
 **示例：**
 ```
@@ -182,9 +262,11 @@
   "success": true,
   "message": "动作执行成功",
   "data": {
+    "did": "1126316381",
     "siid": 2,
     "aiid": 1,
-    "args": [100, 500]
+    "args": [100, 500],
+    "protocol": "miot"
   }
 }
 ```
@@ -193,47 +275,36 @@
 
 ### RPC 调用
 
-#### 5. `rpc_call` - 直接调用 RPC 指令
+#### 10. `rpc_call` - 直接调用 RPC 指令
 
-直接调用 MIoT 设备的 RPC 指令（高级用法，需要对 MIoT 协议有深入了解）。
+直接调用 MIoT 设备的 RPC 指令（高级用法，需要对 MIoT 协议有深入了解）。**自动根据设备 ID 选择协议。**
 
 **参数：**
 - `method` (string, 必需)：RPC 方法名
 - `params` (object, 可选)：方法的参数对象
-- `id` (number, 可选)：请求 ID，默认为 1
+- `did` (string, 可选)：目标设备 ID
 
 **示例：**
 ```
 直接调用 RPC 方法获取设备状态
 ```
 
-**返回：**
-```json
-{
-  "success": true,
-  "data": {
-    "code": 0,
-    "message": "ok",
-    "result": { ... }
-  }
-}
-```
-
 ---
 
 ### 快捷操作
 
-#### 6. `smart_toggle` - 切换开关
+#### 11. `smart_toggle` - 切换开关
 
-快速切换设备的开关状态（开→关或关→开）。
+快速切换设备的开关状态（开→关或关→开）。**必须提供设备 ID，自动校验协议。**
 
 **参数：**
 - `siid` (number, 必需)：Service ID
 - `piid` (number, 必需)：开关属性 ID（通常是 1）
+- `did` (string, 必需)：目标设备 ID
 
 **示例：**
 ```
-切换客厅灯的开关
+切换客厅灯的开关（did="1126316381"）
 ```
 
 **返回：**
@@ -242,65 +313,38 @@
   "success": true,
   "message": "已打开设备",
   "data": {
+    "did": "1126316381",
     "previousState": false,
-    "currentState": true
+    "currentState": true,
+    "protocol": "miot"
   }
 }
 ```
 
-#### 7. `smart_brightness` - 调整亮度
+#### 12. `smart_brightness` - 调整亮度
 
-调整灯光或其他设备的亮度。
+调整灯光或其他设备的亮度。**必须提供设备 ID，自动校验协议。**
 
 **参数：**
 - `siid` (number, 必需)：Service ID
 - `piid` (number, 必需)：亮度属性 ID（通常是 2）
 - `brightness` (number, 必需)：亮度值（0-100）
+- `did` (string, 必需)：目标设备 ID
 
 **示例：**
 ```
-将书房灯的亮度调至 50%
+将书房灯的亮度调至 50%（did="1126316381"）
 ```
 
-**返回：**
-```json
-{
-  "success": true,
-  "message": "亮度已调至 50%",
-  "data": {
-    "siid": 2,
-    "piid": 2,
-    "brightness": 50
-  }
-}
-```
+#### 13. `smart_color_temperature` - 调整色温
 
-#### 8. `smart_color_temperature` - 调整色温
-
-调整灯光的色温（需要设备支持）。
+调整灯光的色温。**必须提供设备 ID，自动校验协议。**
 
 **参数：**
 - `siid` (number, 必需)：Service ID
 - `piid` (number, 必需)：色温属性 ID
 - `temperature` (number, 必需)：色温值（单位：开尔文，通常 1700-6500K）
-
-**示例：**
-```
-将灯光色温调至 4000K（中性白）
-```
-
-**返回：**
-```json
-{
-  "success": true,
-  "message": "色温已调至 4000K",
-  "data": {
-    "siid": 2,
-    "piid": 3,
-    "temperature": 4000
-  }
-}
-```
+- `did` (string, 必需)：目标设备 ID
 
 ---
 
@@ -310,8 +354,8 @@
 
 ```
 用户说"把客厅灯调到 50% 亮度"：
-1. 调用 `get_device_list` 查找"客厅灯"
-2. 调用 `smart_brightness` 设置亮度为 50
+1. 调用 `find_device` 搜索"客厅灯" → 获取 id 和确认 protocol="miot"
+2. 调用 `smart_brightness` 设置亮度为 50（传入 did）
 3. 调用 `migpt_speaker_control.play_text` 播放确认
 ```
 
@@ -319,39 +363,40 @@
 
 ```
 用户说"启动晚间模式"：
-1. 调用 `smart_brightness` 将卧室灯调至 30%
-2. 调用 `smart_color_temperature` 将灯光调至 2700K（暖白）
-3. 调用 `smart_toggle` 关闭客厅插座
-4. 播放确认信息
+1. 调用 `find_device` 搜索所有灯光设备
+2. 调用 `smart_brightness` 将卧室灯调至 30%
+3. 调用 `smart_color_temperature` 将灯光调至 2700K（暖白）
+4. 调用 `smart_toggle` 关闭客厅插座
+5. 播放确认信息
 ```
 
 ### 场景 3：设备状态查询
 
 ```
 用户说"告诉我有哪些设备在线"：
-1. 调用 `get_device_list` 获取所有设备
+1. 调用 `get_cached_devices` 获取所有设备（含协议标识）
 2. 过滤出 online 为 true 的设备
 3. 生成摘要并播放
 ```
 
-### 场景 4：能源管理
+### 场景 4：处理 MiNA 设备
 
 ```
-龙虾检测到电费过高时：
-1. 调用 `get_device_list` 获取所有插座
-2. 遍历检查插座的功耗属性
-3. 自动关闭低优先级设备
-4. 报告节能结果
+用户说"把音箱音量调大"：
+1. 调用 `find_device` 搜索"音箱" → protocol="mina"
+2. 告知用户这是 MiNA 协议设备，应使用 speaker-control skill
+3. 调用 `migpt_speaker_control.set_volume` 调整音量
 ```
 
 ### 场景 5：场景化控制
 
 ```
 用户说"执行离家模式"：
-1. 关闭所有灯光 → `smart_toggle`
-2. 关闭插座 → `smart_toggle`
-3. 锁定门窗 → `do_action`
-4. 播放确认
+1. 调用 `find_device` 搜索所有可控设备
+2. 关闭所有灯光 → `smart_toggle`（传入各设备的 did）
+3. 关闭插座 → `smart_toggle`
+4. 锁定门窗 → `do_action`
+5. 播放确认
 ```
 
 ---
@@ -387,108 +432,97 @@
 
 ---
 
-## API 文档
+## 工具列表
 
-### 导入方式
-
-```typescript
-import { registerMigptSmartHomeSkill } from 'migpt-claw/skills/migpt-smart-home';
-```
-
-### 工具列表
-
-| 工具名 | 功能 | 参数 | 返回值 |
-|-------|------|------|-------|
-| `get_device_list` | 获取设备列表 | - | success, devices/error |
-| `get_property` | 获取属性值 | siid, piid | success, value/error |
-| `set_property` | 设置属性值 | siid, piid, value | success, message/error |
-| `do_action` | 执行动作 | siid, aiid, args | success, message/error |
-| `rpc_call` | RPC 调用 | method, params | success, data/error |
-| `smart_toggle` | 切换开关 | siid, piid | success, state/error |
-| `smart_brightness` | 调整亮度 | siid, piid, brightness | success, message/error |
-| `smart_color_temperature` | 调整色温 | siid, piid, temperature | success, message/error |
+| 工具名 | 功能 | 必需参数 | 协议要求 |
+|-------|------|---------|---------|
+| `find_device` | 搜索设备（含协议） | keyword | 无 |
+| `get_cached_devices` | 获取缓存设备列表 | - | 无 |
+| `get_device_cache_stats` | 获取缓存统计 | - | 无 |
+| `search_devices` | 搜索设备（按协议分组） | keyword | 无 |
+| `refresh_device_cache` | 刷新设备缓存 | - | 无 |
+| `get_property` | 获取属性值 | siid, piid | MIoT |
+| `set_property` | 设置属性值 | siid, piid, value | MIoT |
+| `do_action` | 执行动作 | siid, aiid | MIoT |
+| `rpc_call` | RPC 调用 | method | MIoT |
+| `smart_toggle` | 切换开关 | siid, piid, did | MIoT |
+| `smart_brightness` | 调整亮度 | siid, piid, brightness, did | MIoT |
+| `smart_color_temperature` | 调整色温 | siid, piid, temperature, did | MIoT |
 
 ---
 
 ## 最佳实践
 
-### 1. 始终检查服务初始化
+### 1. 先用 find_device 确认设备和协议
 
 ```javascript
-// ✅ 正确
-const result = await callTool('get_device_list', {});
-if (!result.success) {
-  console.error('MIoT 服务未就绪:', result.error);
-  return;
+// ✅ 正确：先确认设备协议
+const device = await callTool('find_device', { keyword: '客厅灯' });
+if (device.data.devices[0].protocol === 'mina') {
+  // MiNA 设备，引导使用 speaker-control skill
+} else {
+  // MIoT 设备，可以使用属性控制
+  await callTool('smart_toggle', { siid: 2, piid: 1, did: device.data.devices[0].id });
 }
 
-// 处理结果...
+// ❌ 错误：直接操作未确认协议的设备
+await callTool('smart_toggle', { siid: 2, piid: 1, did: 'some-id' });
 ```
 
-### 2. 缓存设备信息
+### 2. 始终传递 did 参数
 
 ```javascript
-// ✅ 推荐：避免频繁调用 get_device_list
-let deviceCache = null;
-let cacheTime = 0;
+// ✅ 正确：传递目标设备 ID
+await callTool('set_property', { siid: 2, piid: 2, value: 80, did: '1126316381' });
 
-async function getDevices() {
-  const now = Date.now();
-  if (deviceCache && now - cacheTime < 60000) { // 1 分钟缓存
-    return deviceCache;
-  }
-  const result = await callTool('get_device_list', {});
-  if (result.success) {
-    deviceCache = result.data.devices;
-    cacheTime = now;
-  }
-  return deviceCache;
+// ⚠️ 可行但不够精确：使用默认设备
+await callTool('set_property', { siid: 2, piid: 2, value: 80 });
+```
+
+### 3. 处理协议不兼容
+
+```javascript
+// ✅ 推荐：优雅处理协议不兼容
+const result = await callTool('get_property', { siid: 2, piid: 1, did: deviceId });
+if (!result.success && result.error.includes('MiNA')) {
+  console.warn('该设备使用 MiNA 协议，请使用 speaker-control skill');
 }
 ```
 
-### 3. 使用快捷工具而非通用工具
+### 4. 使用快捷工具而非通用工具
 
 ```javascript
 // ❌ 不推荐：手动获取和设置
-const current = await callTool('get_property', { siid: 2, piid: 1 });
+const current = await callTool('get_property', { siid: 2, piid: 1, did });
 const newValue = !current.data.value;
-await callTool('set_property', { siid: 2, piid: 1, value: newValue });
+await callTool('set_property', { siid: 2, piid: 1, value: newValue, did });
 
 // ✅ 推荐：直接切换
-await callTool('smart_toggle', { siid: 2, piid: 1 });
+await callTool('smart_toggle', { siid: 2, piid: 1, did });
 ```
 
-### 4. 批量操作时添加延迟
+### 5. 批量操作时添加延迟
 
 ```javascript
 // ✅ 推荐：防止请求过密集
 for (const device of devices) {
-  await callTool('smart_toggle', { siid: device.siid, piid: 1 });
+  await callTool('smart_toggle', { siid: device.siid, piid: 1, did: device.id });
   await sleep(200); // 200ms 延迟
-}
-```
-
-### 5. 错误处理和降级
-
-```javascript
-// ✅ 推荐：优雅降级
-async function toggleLight(siid, piid) {
-  try {
-    const result = await callTool('smart_toggle', { siid, piid });
-    if (!result.success) {
-      console.warn('切换失败，尝试直接调用 RPC');
-      // 降级方案...
-    }
-  } catch (err) {
-    console.error('设备控制异常:', err);
-    // 通知用户或重试
-  }
 }
 ```
 
 ---
 
 ## 故障排查
+
+### 问题：工具返回"MiNA 协议，不支持属性读写操作"
+
+**原因：** 你正在尝试对一个 MiNA 协议设备（如小爱音箱）使用 MIoT 的属性操作。
+
+**解决方案：**
+1. 使用 `find_device` 确认设备协议
+2. MiNA 设备请使用 speaker-control skill 的 TTS、音量控制等功能
+3. 只有 MIoT 设备才能使用本 Skill 的属性控制功能
 
 ### 问题：`get_device_list` 返回空列表
 
@@ -521,7 +555,7 @@ async function toggleLight(siid, piid) {
 2. 网络连接不稳定
 
 **解决方案：**
-1. 先调用 `get_device_list` 检查设备在线状态
+1. 先调用 `get_cached_devices` 检查设备在线状态
 2. 如果离线，给用户提示而不是执行命令
 3. 检查网络连接
 
@@ -531,6 +565,7 @@ async function toggleLight(siid, piid) {
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| 1.1 | 2025 | 添加协议标识（MiNA/MIoT），支持设备 ID 指定目标设备，自动协议校验 |
 | 1.0 | 2024 | 初始版本，提供完整的 MIoT 设备控制能力 |
 
 ---
@@ -538,9 +573,9 @@ async function toggleLight(siid, piid) {
 ## 技术支持
 
 如遇问题，请检查：
-1. MIoT 服务是否正确初始化
-2. 设备是否在线
-3. siid/piid 是否正确
-4. 属性值类型是否匹配
-5. 小米账号是否有效
-
+1. 设备支持的协议类型（MiNA 或 MIoT）
+2. MIoT 服务是否正确初始化
+3. 设备是否在线
+4. siid/piid 是否正确
+5. 属性值类型是否匹配
+6. 小米账号是否有效

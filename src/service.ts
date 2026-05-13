@@ -4,6 +4,7 @@ import { getMiService } from './mi/common.js';
 import { assert, sleep } from './utils/parse.js';
 import { Debugger } from './utils/debug.js';
 import { deviceCache, CACHE_DURATION } from './device-cache.js';
+import type { UnifiedDevice, DeviceProtocol } from './device-cache.js';
 
 export interface MiServiceConfig {
   /** 小米 ID（数字） */
@@ -227,6 +228,7 @@ class _MiService {
                 address: d.address,
                 hardware: d.hardware,
                 romVersion: d.romVersion,
+                protocol: 'mina' as const,
               }))
             );
           }
@@ -251,6 +253,7 @@ class _MiService {
                 isOnline: d.isOnline,
                 desc: d.desc,
                 extra: d.extra,
+                protocol: 'miot' as const,
               }))
             );
           }
@@ -287,6 +290,34 @@ class _MiService {
    */
   async searchDevices(keyword: string) {
     return deviceCache.searchDevice(keyword);
+  }
+
+  /**
+   * 统一搜索设备（返回带协议标识的设备列表）
+   */
+  async findDevices(keyword: string): Promise<UnifiedDevice[]> {
+    return deviceCache.searchUnifiedDevices(keyword);
+  }
+
+  /**
+   * 根据设备 ID 获取设备信息（包含协议标识）
+   */
+  async getDeviceById(id: string): Promise<UnifiedDevice | null> {
+    return deviceCache.getDeviceById(id);
+  }
+
+  /**
+   * 根据设备 ID 获取其支持的协议
+   */
+  async getDeviceProtocol(id: string): Promise<DeviceProtocol | null> {
+    return deviceCache.getDeviceProtocol(id);
+  }
+
+  /**
+   * 获取所有设备的统一列表（包含协议标识）
+   */
+  async getAllUnifiedDevices(): Promise<UnifiedDevice[]> {
+    return deviceCache.getAllUnifiedDevices();
   }
 
   /**

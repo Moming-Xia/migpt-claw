@@ -63,11 +63,11 @@
   "sideEffects": false,
   "license": "MIT",
   "author": {
-    "name": "Leon",
-    "email": "leon@example.com"
+    "name": "Moming",
+    "email": "yu15574993992@foxmail.com"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/leon/migpt-claw.git"
+    "url": "git@github.com:Moming-Xia/migpt-claw.git"
   }
 }

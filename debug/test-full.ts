@@ -106,6 +106,7 @@ async function main() {
     const messages = await MiMessage.getHistoryMessages(deviceId, 5);
     if (messages.length > 0) {
       logger.success(`获取到 ${messages.length} 条对话`);
+      console.log(messages);
     } else {
       logger.warning('暂无对话记录');
     }
@@ -227,7 +228,12 @@ async function main() {
   logger.title('完整诊断完成');
 }
 
-main().catch((err) => {
-  logger.error('发生错误', err);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    logger.success('✅ 脚本执行完成');
+    process.exit(0);
+  })
+  .catch((err) => {
+    logger.error('发生错误', err);
+    process.exit(1);
+  });

@@ -130,7 +130,12 @@ async function main() {
   logger.title('所有测试完成');
 }
 
-main().catch((err) => {
-  logger.error('发生错误', err);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    logger.success('✅ 脚本执行完成');
+    process.exit(0);
+  })
+  .catch((err) => {
+    logger.error('发生错误', err);
+    process.exit(1);
+  });

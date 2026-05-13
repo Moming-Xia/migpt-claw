@@ -11,6 +11,29 @@
 import { readJSON, writeJSON } from './utils/io.js';
 import { Debugger } from './utils/debug.js';
 
+/** 设备支持的协议类型 */
+export type DeviceProtocol = 'mina' | 'miot';
+
+/** 统一设备信息（包含协议标识） */
+export interface UnifiedDevice {
+  /** 设备 ID（MiNA 设备为 deviceID，MIoT 设备为 did） */
+  id: string;
+  /** 设备名称 */
+  name: string;
+  /** 设备型号 */
+  model?: string;
+  /** 设备 MAC 地址 */
+  mac?: string;
+  /** 设备支持的协议 */
+  protocol: DeviceProtocol;
+  /** 是否在线 */
+  online?: boolean;
+  /** MiNA 设备的 miotDID（若同时支持 MIoT 协议） */
+  miotDID?: string;
+  /** 原始设备数据 */
+  raw: Record<string, any>;
+}
+
 export interface DeviceCacheData {
   /** 缓存最后更新时间 */
   lastUpdated: number;
@@ -28,6 +51,8 @@ export interface DeviceCacheData {
     address?: string;
     hardware?: string;
     romVersion?: string;
+    /** 设备支持的协议 */
+    protocol: DeviceProtocol;
   }>;
 
   /** MIoT 设备列表（智能家居设备） */
@@ -41,6 +66,8 @@ export interface DeviceCacheData {
     isOnline?: boolean;
     desc?: string;
     extra?: Record<string, any>;
+    /** 设备支持的协议 */
+    protocol: DeviceProtocol;
     [key: string]: any;
   }>;
 
@@ -134,6 +161,143 @@ class DeviceCache {
         d.did?.includes(keyword)
       ),
     };
+  }
+
+  /**
+   * 统一搜索设备（返回带协议标识的设备列表）
+   */
+  async searchUnifiedDevices(keyword: string): Promise<UnifiedDevice[]> {
+    await this.init();
+    const lowerKeyword = keyword.toLowerCase();
+    const results: UnifiedDevice[] = [];
+
+    // 搜索 MiNA 设备
+    for (const d of this._cache?.minaDevices || []) {
+      if (
+        d.name?.toLowerCase().includes(lowerKeyword) ||
+        d.alias?.toLowerCase().includes(lowerKeyword) ||
+        d.model?.toLowerCase().includes(lowerKeyword) ||
+        d.mac?.includes(keyword)
+      ) {
+        results.push({
+          id: d.deviceID,
+          name: d.name,
+          model: d.model,
+          mac: d.mac,
+          protocol: 'mina',
+          online: d.presence === 'online',
+          miotDID: d.miotDID,
+          raw: d as any,
+        });
+      }
+    }
+
+    // 搜索 MIoT 设备
+    for (const d of this._cache?.miotDevices || []) {
+      if (
+        d.name?.toLowerCase().includes(lowerKeyword) ||
+        d.model?.toLowerCase().includes(lowerKeyword) ||
+        d.mac?.includes(keyword) ||
+        d.did?.includes(keyword)
+      ) {
+        results.push({
+          id: d.did,
+          name: d.name,
+          model: d.model,
+          mac: d.mac,
+          protocol: 'miot',
+          online: d.isOnline,
+          raw: d as any,
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * 根据 ID 获取设备信息（包含协议标识）
+   */
+  async getDeviceById(id: string): Promise<UnifiedDevice | null> {
+    await this.init();
+
+    // 先在 MiNA 设备中查找
+    const minaDevice = (this._cache?.minaDevices || []).find(
+      d => d.deviceID === id || d.miotDID === id || d.mac === id
+    );
+    if (minaDevice) {
+      return {
+        id: minaDevice.deviceID,
+        name: minaDevice.name,
+        model: minaDevice.model,
+        mac: minaDevice.mac,
+        protocol: 'mina',
+        online: minaDevice.presence === 'online',
+        miotDID: minaDevice.miotDID,
+        raw: minaDevice as any,
+      };
+    }
+
+    // 再在 MIoT 设备中查找
+    const miotDevice = (this._cache?.miotDevices || []).find(
+      d => d.did === id || d.mac === id
+    );
+    if (miotDevice) {
+      return {
+        id: miotDevice.did,
+        name: miotDevice.name,
+        model: miotDevice.model,
+        mac: miotDevice.mac,
+        protocol: 'miot',
+        online: miotDevice.isOnline,
+        raw: miotDevice as any,
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * 获取所有设备的统一列表（包含协议标识）
+   */
+  async getAllUnifiedDevices(): Promise<UnifiedDevice[]> {
+    await this.init();
+    const devices: UnifiedDevice[] = [];
+
+    for (const d of this._cache?.minaDevices || []) {
+      devices.push({
+        id: d.deviceID,
+        name: d.name,
+        model: d.model,
+        mac: d.mac,
+        protocol: 'mina',
+        online: d.presence === 'online',
+        miotDID: d.miotDID,
+        raw: d as any,
+      });
+    }
+
+    for (const d of this._cache?.miotDevices || []) {
+      devices.push({
+        id: d.did,
+        name: d.name,
+        model: d.model,
+        mac: d.mac,
+        protocol: 'miot',
+        online: d.isOnline,
+        raw: d as any,
+      });
+    }
+
+    return devices;
+  }
+
+  /**
+   * 根据设备 ID 获取其支持的协议
+   */
+  async getDeviceProtocol(id: string): Promise<DeviceProtocol | null> {
+    const device = await this.getDeviceById(id);
+    return device?.protocol ?? null;
   }
 
   /**

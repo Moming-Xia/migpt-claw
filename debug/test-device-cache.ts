@@ -141,7 +141,12 @@ async function main() {
   logger.title('测试完成');
 }
 
-main().catch(err => {
-  logger.error('测试异常', err.message);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    logger.success('✅ 脚本执行完成');
+    process.exit(0);
+  })
+  .catch(err => {
+    logger.error('测试异常', err.message);
+    process.exit(1);
+  });

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { MiService } from './service.js';
 import { firstOf, lastOf } from './utils/parse.js';
 import { IMessage } from './types.js';
+export { IMessage };
 
 class _MiMessage {
   private _lastQueryMsg: Record<string, IMessage | undefined> = {};

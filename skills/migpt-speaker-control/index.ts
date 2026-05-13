@@ -1,7 +1,7 @@
 import type { OpenClawPluginApi } from 'openclaw/plugin-sdk';
 import { MiService } from '../../src/service.js';
 import { MiSpeaker } from '../../src/speaker.js';
-import type { MiConversation } from '../../src/mi/typing.js';
+import { MiMessage } from '../../src/message.js';
 
 /**
  * 小爱音箱全能控制技能
@@ -224,36 +224,23 @@ export function registerMigptSpeakerControlSkill(api: OpenClawPluginApi) {
     },
     execute: async (input: { limit?: number; timestamp?: number }) => {
       try {
-        if (!MiService.MiNA) {
-          return { success: false, error: 'MiNA 服务未初始化' };
+        const deviceId = MiService.currentDeviceId;
+        if (!deviceId) {
+          return { success: false, error: '未找到配置的设备' };
         }
 
         const limit = Math.min(input.limit ?? 10, 100);
-        const conversations = await MiService.MiNA.getConversations({
-          limit,
-          timestamp: input.timestamp,
-        });
-
-        if (!conversations) {
-          return { success: false, error: '获取对话历史失败' };
-        }
-
-        // 格式化返回的数据
-        const formattedRecords = conversations.records.map((record: MiConversation) => ({
-          query: record.query,
-          timestamp: record.time,
-          answers: record.answers.map((answer) => ({
-            type: answer.type,
-            content: answer.tts || answer.url || '（音频或其他内容）',
-          })),
-        }));
+        const messages = await MiMessage.getHistoryMessages(deviceId, limit, input.timestamp);
 
         return {
           success: true,
           data: {
-            records: formattedRecords,
-            hasMore: conversations.hasMore,
-            cursor: conversations.cursor,
+            records: messages.map((msg) => ({
+              text: msg.text,
+              timestamp: msg.timestamp,
+              formattedTime: new Date(msg.timestamp).toLocaleString('zh-CN'),
+            })),
+            total: messages.length,
             timestamp: Date.now(),
           },
         };
@@ -265,36 +252,30 @@ export function registerMigptSpeakerControlSkill(api: OpenClawPluginApi) {
 
   api.registerTool({
     name: 'get_last_conversation',
-    description: '获取最后一条对话（用户提问和小爱回答）',
+    description: '获取最后一条对话（用户提问）',
     inputSchema: {
       type: 'object',
       properties: {},
     },
     execute: async () => {
       try {
-        if (!MiService.MiNA) {
-          return { success: false, error: 'MiNA 服务未初始化' };
+        const deviceId = MiService.currentDeviceId;
+        if (!deviceId) {
+          return { success: false, error: '未找到配置的设备' };
         }
 
-        const conversations = await MiService.MiNA.getConversations({
-          limit: 1,
-        });
+        const lastMessage = await MiMessage.getLastMessage(deviceId);
 
-        if (!conversations || conversations.records.length === 0) {
+        if (!lastMessage) {
           return { success: false, error: '暂无对话记录' };
         }
 
-        const lastRecord = conversations.records[0];
         return {
           success: true,
           data: {
-            query: lastRecord.query,
-            timestamp: lastRecord.time,
-            answers: lastRecord.answers.map((answer) => ({
-              type: answer.type,
-              content: answer.tts || answer.url || '（音频或其他内容）',
-            })),
-            formattedTime: new Date(lastRecord.time).toLocaleString('zh-CN'),
+            text: lastMessage.text,
+            timestamp: lastMessage.timestamp,
+            formattedTime: new Date(lastMessage.timestamp).toLocaleString('zh-CN'),
           },
         };
       } catch (err: any) {
@@ -324,45 +305,27 @@ export function registerMigptSpeakerControlSkill(api: OpenClawPluginApi) {
     },
     execute: async (input: { keyword: string; limit?: number }) => {
       try {
-        if (!MiService.MiNA) {
-          return { success: false, error: 'MiNA 服务未初始化' };
+        const deviceId = MiService.currentDeviceId;
+        if (!deviceId) {
+          return { success: false, error: '未找到配置的设备' };
         }
 
-        const searchLimit = Math.min(input.limit ?? 50, 100);
-        const conversations = await MiService.MiNA.getConversations({
-          limit: searchLimit,
-        });
-
-        if (!conversations || conversations.records.length === 0) {
-          return { success: false, error: '暂无对话记录' };
-        }
-
-        // 搜索匹配的记录
-        const keyword = input.keyword.toLowerCase();
-        const matchedRecords = conversations.records.filter((record: MiConversation) =>
-          record.query.toLowerCase().includes(keyword)
+        const matchedMessages = await MiMessage.searchMessages(
+          deviceId,
+          input.keyword,
+          input.limit,
         );
-
-        if (matchedRecords.length === 0) {
-          return { success: true, data: { records: [], total: 0 } };
-        }
-
-        const formattedRecords = matchedRecords.map((record: MiConversation) => ({
-          query: record.query,
-          timestamp: record.time,
-          answers: record.answers.map((answer) => ({
-            type: answer.type,
-            content: answer.tts || answer.url || '（音频或其他内容）',
-          })),
-          formattedTime: new Date(record.time).toLocaleString('zh-CN'),
-        }));
 
         return {
           success: true,
           data: {
             keyword: input.keyword,
-            records: formattedRecords,
-            total: matchedRecords.length,
+            records: matchedMessages.map((msg) => ({
+              text: msg.text,
+              timestamp: msg.timestamp,
+              formattedTime: new Date(msg.timestamp).toLocaleString('zh-CN'),
+            })),
+            total: matchedMessages.length,
           },
         };
       } catch (err: any) {

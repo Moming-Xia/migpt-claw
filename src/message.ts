@@ -181,6 +181,56 @@ class _MiMessage {
     this._lastQueryMsg = {};
     this._tempQueryMsgs = {};
   }
+
+  /**
+   * 获取历史消息（高级接口）
+   * @param deviceId 设备 ID
+   * @param limit 获取的消息数
+   * @param timestamp 时间戳，用于分页
+   */
+  async getHistoryMessages(
+    deviceId: string,
+    limit?: number,
+    timestamp?: number,
+  ): Promise<IMessage[]> {
+    return this._fetchHistoryMsgs(deviceId, {
+      limit,
+      timestamp,
+      filterAnswer: true,
+    });
+  }
+
+  /**
+   * 获取最后一条消息（高级接口）
+   * @param deviceId 设备 ID
+   */
+  async getLastMessage(deviceId: string): Promise<IMessage | undefined> {
+    const msgs = await this._fetchHistoryMsgs(deviceId, {
+      limit: 1,
+      filterAnswer: true,
+    });
+    return msgs[0];
+  }
+
+  /**
+   * 搜索消息（高级接口）
+   * @param deviceId 设备 ID
+   * @param keyword 搜索关键词
+   * @param limit 最多搜索多少条记录
+   */
+  async searchMessages(
+    deviceId: string,
+    keyword: string,
+    limit?: number,
+  ): Promise<IMessage[]> {
+    const searchLimit = Math.min(limit ?? 50, 100);
+    const msgs = await this._fetchHistoryMsgs(deviceId, {
+      limit: searchLimit,
+      filterAnswer: true,
+    });
+    const keywordLower = keyword.toLowerCase();
+    return msgs.filter((msg) => msg.text.toLowerCase().includes(keywordLower));
+  }
 }
 
 export const MiMessage = new _MiMessage();

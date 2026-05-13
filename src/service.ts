@@ -25,6 +25,14 @@ class _MiService {
   private _initialized = false;
   private _initializing = false;
   private _speakerControl: 'mina' | 'miot' = 'mina';
+  private _currentDeviceId: string = '';
+
+  /**
+   * 获取当前设备 ID
+   */
+  get currentDeviceId(): string {
+    return this._currentDeviceId;
+  }
 
   /**
    * 使用 MIoT 发送 TTS 播报
@@ -110,6 +118,7 @@ class _MiService {
       });
 
       assert(!!did, '❌ Speaker 缺少 did 参数');
+      this._currentDeviceId = did;
       assert(
         !!config.passToken || (!!config.userId && !!config.password),
         '❌ Speaker 缺少 passToken 或 userId 和 password',

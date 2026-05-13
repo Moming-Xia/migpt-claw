@@ -146,48 +146,194 @@ openclaw gateway restart
 
 ```
 migpt-claw/
-├── index.ts                 # 插件入口
-├── src/
-│   ├── channel.ts          # Channel 核心
-│   ├── service.ts          # 认证服务
-│   ├── message.ts          # 消息轮询
-│   ├── speaker.ts          # TTS 播放
-│   ├── config.ts           # 配置解析
-│   ├── types.ts            # 类型定义
-│   ├── outbound.ts         # 消息发送
-│   ├── onboarding.ts       # 安装向导
-│   ├── runtime.ts          # 运行时管理
-│   ├── mi/                 # 小米服务
-│   │   ├── mina.ts        # MiNA API
-│   │   ├── miot.ts        # MIoT API
-│   │   ├── account.ts     # 账号认证
-│   │   ├── common.ts      # 通用工具
-│   │   └── typing.ts      # 类型定义
-│   └── utils/              # 工具函数
-│       ├── http.ts        # HTTP 请求
-│       ├── codec.ts       # 编解码
-│       ├── hash.ts        # 哈希工具
-│       ├── io.ts          # 文件 IO
-│       └── parse.ts       # 解析工具
-└── skills/
-    ├── migpt-speaker-control/   # 小爱音箱全能控制技能
-    │   ├── index.ts
-    │   └── SKILL.md
-    └── migpt-smart-home/        # 小米智能家居设备控制技能
-        ├── index.ts
-        └── SKILL.md
+├── index.ts                           # 插件入口
+│
+├── src/                               # 核心代码
+│   ├── channel.ts                    # OpenClaw Channel 实现
+│   ├── service.ts                    # MiService 服务层
+│   ├── speaker.ts                    # MiSpeaker TTS 播放
+│   ├── message.ts                    # 消息轮询和去重
+│   ├── config.ts                     # 配置解析
+│   ├── types.ts                      # TypeScript 类型定义
+│   ├── outbound.ts                   # 消息发送接口
+│   ├── onboarding.ts                 # 插件安装向导
+│   ├── runtime.ts                    # 运行时管理
+│   ├── mi/                           # 小米服务协议层
+│   │   ├── mina.ts                  # MiNA 协议实现
+│   │   ├── miot.ts                  # MIoT 协议实现
+│   │   ├── account.ts               # 账号认证
+│   │   ├── common.ts                # 通用工具
+│   │   ├── index.ts                 # 模块导出
+│   │   └── typing.ts                # 类型定义
+│   └── utils/                        # 工具函数
+│       ├── http.ts                  # HTTP 请求
+│       ├── codec.ts                 # 编解码
+│       ├── hash.ts                  # 加密哈希
+│       ├── io.ts                    # 文件 IO
+│       ├── debug.ts                 # 调试工具
+│       ├── parse.ts                 # 解析工具
+│       └── index.ts                 # 模块导出
+│
+├── skills/                            # OpenClaw Skills
+│   ├── migpt-speaker-control/        # 小爱音箱全能控制
+│   │   ├── index.ts                 # 12 个工具实现
+│   │   └── SKILL.md                 # 完整使用文档
+│   └── migpt-smart-home/             # 小米智能家居控制
+│       ├── index.ts                 # 8 个工具实现
+│       └── SKILL.md                 # 完整使用文档
+│
+├── debug/                             # 本地调试系统
+│   ├── env.ts                        # 环境变量管理
+│   ├── local.ts                      # 本地调试工具类
+│   ├── test-full.ts                  # 完整诊断脚本
+│   ├── test-speaker.ts               # 音箱功能测试
+│   ├── test-smart-home.ts            # 智能家居测试
+│   ├── GUIDE.md                      # 详细调试指南
+│   └── QUICK_REF.md                  # 快速参考卡
+│
+├── .env.local.example                 # 环境变量模板
+├── .gitignore                         # Git 忽略配置
+├── openclaw.plugin.json               # 插件配置文件
+├── package.json                       # NPM 配置
+├── tsconfig.json                      # TypeScript 配置
+├── tsup.config.ts                     # Tsup 构建配置
+└── README.md                          # 项目说明
 ```
 
-## 开发
+## 文件说明
+
+### 核心模块
+
+| 目录 | 说明 |
+|------|------|
+| `src/` | 插件核心代码，包括 Channel、Service、Message 等 |
+| `src/mi/` | 小米服务协议层，MiNA 和 MIoT 实现 |
+| `src/utils/` | 工具函数库 |
+| `skills/` | OpenClaw Skills，提供龙虾可调用的工具 |
+
+### 调试系统
+
+| 文件 | 说明 |
+|------|------|
+| `debug/env.ts` | 从环境变量读取配置 |
+| `debug/local.ts` | 本地调试工具和日志系统 |
+| `debug/test-*.ts` | 预定义测试脚本 |
+| `debug/GUIDE.md` | 详细调试指南 |
+| `debug/QUICK_REF.md` | 快速参考 |
+| `.env.local.example` | 环境变量模板 |
+
+### 配置文件
+
+| 文件 | 说明 |
+|------|------|
+| `openclaw.plugin.json` | OpenClaw 插件配置 |
+| `package.json` | NPM 配置和脚本 |
+| `tsconfig.json` | TypeScript 编译配置 |
+| `tsup.config.ts` | 代码打包配置 |
+| `.gitignore` | Git 忽略规则 |
+
+## 开发和调试
+
+### 安装依赖
 
 ```bash
-# 安装依赖
 npm install
+```
 
-# 构建
+### 开发流程
+
+```bash
+# 监听代码变化，自动编译
+npm run dev
+
+# 在另一个终端中运行测试
+npm run debug:full
+```
+
+### 本地调试
+
+本项目提供了完整的本地调试系统，可以在不依赖龙虾的情况下直接测试底层功能。
+
+#### 快速开始
+
+1. **配置环境变量**
+   ```bash
+   cp envConfig/.env.local.example envConfig/.env.local
+   # 编辑 envConfig/.env.local，填入你的小米账号信息
+   ```
+
+2. **运行调试脚本**
+   ```bash
+   # 完整诊断
+   npm run debug:full
+
+   # 仅测试音箱功能
+   npm run debug:speaker
+
+   # 仅测试智能家居设备
+   npm run debug:smart
+   ```
+
+3. **查看详细文档**
+   ```bash
+   # 详细调试指南
+   cat debug/GUIDE.md
+
+   # 快速参考
+   cat debug/QUICK_REF.md
+   ```
+
+#### 调试系统特性
+
+- ✅ 环境变量管理（敏感信息从 `.env.local` 读取）
+- ✅ 彩色日志系统（success/error/warning/info）
+- ✅ 多个预定义测试脚本
+- ✅ 性能基准测试
+- ✅ 自动诊断报告
+
+#### 编写自定义测试
+
+```typescript
+// debug/test-my.ts
+import { createDebugContext, logger } from './local.js';
+
+async function main() {
+  const ctx = await createDebugContext();
+  if (!ctx) return;
+  
+  if (!(await ctx.init())) return;
+  
+  // 你的测试
+  await ctx.testTts('Hello');
+  logger.success('Done!');
+}
+
+main().catch(logger.error);
+```
+
+运行：
+```bash
+npx ts-node debug/test-my.ts
+```
+
+### 构建
+
+```bash
+# 编译 TypeScript 并生成打包文件
 npm run build
 
+# 生成的文件在 dist/ 目录
 ```
+
+### NPM 命令参考
+
+| 命令 | 说明 |
+|------|------|
+| `npm run dev` | 开发模式（监听代码变化） |
+| `npm run build` | 构建项目 |
+| `npm run debug:full` | 完整诊断 |
+| `npm run debug:speaker` | 音箱功能测试 |
+| `npm run debug:smart` | 智能家居测试 |
 
 ## AI 辅助开发
 

@@ -30,3 +30,4 @@ logs/
 temp/
 tmp/
 *.tmp
+.migpt

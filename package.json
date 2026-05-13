@@ -14,10 +14,11 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "ts-node debug/test.ts",
-    "debug:full": "ts-node debug/test-full.ts",
-    "debug:speaker": "ts-node debug/test-speaker.ts",
-    "debug:smart": "ts-node debug/test-smart-home.ts"
+    "test": "tsx debug/test.ts",
+    "debug:full": "tsx debug/test-full.ts",
+    "debug:speaker": "tsx debug/test-speaker.ts",
+    "debug:smart": "tsx debug/test-smart-home.ts",
+    "debug:cache": "tsx debug/test-device-cache.ts"
   },
   "files": [
     "dist",
@@ -51,7 +52,9 @@
     "@types/axios": "^0.9.36",
     "@types/node": "^22.14.0",
     "@types/pako": "^2.0.4",
+    "ts-node": "^10.9.2",
     "tsup": "^8.4.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.8.2"
   },
   "engines": {

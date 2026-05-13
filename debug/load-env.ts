@@ -45,14 +45,18 @@ export function loadEnvFile(filePath: string): void {
         }
       }
     }
-  } catch (err) {
+  } catch (err: any) {
     // 如果文件不存在，静默忽略
-    if ((err as any)?.code !== 'ENOENT') {
-      console.warn(`⚠️ 加载环境变量文件失败: ${filePath}`);
+    if (err?.code !== 'ENOENT') {
+      console.warn(`⚠️ 加载环境变量文件失败: ${filePath}`, err?.message);
     }
   }
 }
 
 // 自动加载 envConfig/.env.local
-const envLocalPath = resolve(__dirname, '../envConfig/.env.local');
-loadEnvFile(envLocalPath);
+try {
+  const envLocalPath = resolve(__dirname, '../envConfig/.env.local');
+  loadEnvFile(envLocalPath);
+} catch (err: any) {
+  console.error('❌ 环境变量加载出错:', err?.message);
+}

@@ -15,13 +15,13 @@ export function getDataDir(subdir?: string): string {
 /**
  * 读取 JSON 文件
  */
-export async function readJSON<T = any>(filename: string): Promise<T | undefined> {
+export async function readJSON<T = any>(filename: string): Promise<T | null> {
   try {
     const filepath = join(getDataDir(), filename);
     const content = await fs.readFile(filepath, 'utf-8');
     return JSON.parse(content);
   } catch {
-    return undefined;
+    return null;
   }
 }
 

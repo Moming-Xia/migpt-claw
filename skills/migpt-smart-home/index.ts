@@ -1,12 +1,130 @@
 import type { OpenClawPluginApi } from 'openclaw/plugin-sdk';
 import { MiService } from '../../src/service.js';
-import type { MIoTDevice } from '../../src/mi/typing.js';
 
 /**
  * 小米智能家居设备控制技能
  * 提供对小米 IoT 设备的通用控制能力：获取属性、设置属性、执行动作等
  */
 export function registerMigptSmartHomeSkill(api: OpenClawPluginApi) {
+  // ============ 设备缓存查询 ============
+
+  api.registerTool({
+    name: 'get_cached_devices',
+    description: '获取缓存的所有家居设备列表（包括音箱和智能家居设备）',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async () => {
+      try {
+        const cache = await MiService.getDeviceCache();
+        if (!cache) {
+          return {
+            success: true,
+            data: {
+              message: '设备缓存为空，请等待初始化完成',
+              devices: null,
+              minaCount: 0,
+              miotCount: 0,
+            },
+          };
+        }
+
+        return {
+          success: true,
+          data: {
+            minaDevices: cache.minaDevices || [],
+            miotDevices: cache.miotDevices || [],
+            minaCount: cache.minaDevices?.length || 0,
+            miotCount: cache.miotDevices?.length || 0,
+            total: (cache.minaDevices?.length || 0) + (cache.miotDevices?.length || 0),
+            lastUpdated: new Date(cache.lastUpdated).toLocaleString('zh-CN'),
+          },
+        };
+      } catch (err: any) {
+        return { success: false, error: err.message || '获取设备缓存失败' };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: 'get_device_cache_stats',
+    description: '获取设备缓存的统计信息',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async () => {
+      try {
+        const stats = await MiService.getDeviceCacheStats();
+        return {
+          success: true,
+          data: {
+            minaDeviceCount: stats.minaCount,
+            miotDeviceCount: stats.miotCount,
+            totalDevices: stats.totalCount,
+            lastUpdated: new Date(stats.lastUpdated).toLocaleString('zh-CN'),
+            cacheAge: stats.age,
+          },
+        };
+      } catch (err: any) {
+        return { success: false, error: err.message || '获取缓存统计失败' };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: 'search_devices',
+    description: '搜索指定名称或型号的设备',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        keyword: {
+          type: 'string',
+          description: '搜索关键词（设备名称、型号或 MAC 地址）',
+        },
+      },
+      required: ['keyword'],
+    },
+    execute: async (input: { keyword: string }) => {
+      try {
+        const result = await MiService.searchDevices(input.keyword);
+        return {
+          success: true,
+          data: {
+            keyword: input.keyword,
+            minaDevices: result.minaDevices,
+            miotDevices: result.miotDevices,
+            total:
+              (result.minaDevices?.length || 0) + (result.miotDevices?.length || 0),
+          },
+        };
+      } catch (err: any) {
+        return { success: false, error: err.message || '搜索设备失败' };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: 'refresh_device_cache',
+    description: '刷新设备缓存，重新查询所有家居设备（MiNA 和 MIoT）',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async () => {
+      try {
+        const result = await MiService.refreshDeviceCache();
+        return result;
+      } catch (err: any) {
+        return {
+          success: false,
+          message: `❌ 刷新缓存异常：${err.message || '未知错误'}`,
+        };
+      }
+    },
+  });
+
   // ============ 设备管理 ============
 
   api.registerTool({

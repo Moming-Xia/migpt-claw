@@ -27,62 +27,26 @@ async function main() {
     return;
   }
 
-  // ============ 音量控制 ============
-  logger.section('1. 音量控制');
-  try {
-    const volume = await MiSpeaker.getVolume();
-    logger.success(`当前音量: ${volume}%`);
-    
-    const setResult = await MiSpeaker.setVolume(50);
-    if (setResult.success) {
-      logger.success('音量已设置为 50%');
-    } else {
-      logger.error('设置音量失败', setResult.error);
-    }
-  } catch (err: any) {
-    logger.error('音量操作异常', err.message);
-  }
-
-  // ============ TTS 播放 ============
-  logger.section('2. TTS 播放');
-  try {
-    const result = await MiSpeaker.play({ text: '调试测试完成' });
-    if (result.success) {
-      logger.success('播放成功');
-    } else {
-      logger.error('播放失败', result.error);
-    }
-  } catch (err: any) {
-    logger.error('播放异常', err.message);
-  }
-
   // ============ 消息接口 ============
-  logger.section('3. 消息接口（MiMessage）');
-  try {
-    const deviceId = MiService.currentDeviceId;
+  const deviceId = MiService.currentDeviceId;
 
-    // 获取历史消息
-    const messages = await MiMessage.getHistoryMessages(deviceId, 5);
-    logger.success(`获取历史消息: ${messages.length} 条`, 
-      messages.map((m) => ({ text: m.text, timestamp: new Date(m.timestamp).toLocaleString('zh-CN') }))
-    );
+  // 获取历史消息
+  const messages = await MiMessage.getHistoryMessages(deviceId, 5);
+  logger.success(`获取历史消息: ${messages.length} 条`, 
+    messages.map((m) => ({ text: m.text, timestamp: new Date(m.timestamp).toLocaleString('zh-CN') }))
+  );
 
-    // 获取最后一条消息
-    const lastMsg = await MiMessage.getLastMessage(deviceId);
-    if (lastMsg) {
-      logger.success('最后一条消息', { text: lastMsg.text, time: new Date(lastMsg.timestamp).toLocaleString('zh-CN') });
-    } else {
-      logger.warning('暂无消息');
-    }
-
-    // 搜索消息
-    const searchResults = await MiMessage.searchMessages(deviceId, '天气', 10);
-    logger.success(`搜索"天气"得到: ${searchResults.length} 条结果`);
-  } catch (err: any) {
-    logger.error('消息接口异常', err.message);
+  // 获取最后一条消息
+  const lastMsg = await MiMessage.getLastMessage(deviceId);
+  if (lastMsg) {
+    logger.success('最后一条消息', { text: lastMsg.text, time: new Date(lastMsg.timestamp).toLocaleString('zh-CN') });
+  } else {
+    logger.warning('暂无消息');
   }
 
-  logger.title('调试完成');
+  // 搜索消息
+  const searchResults = await MiMessage.searchMessages(deviceId, '关灯', 10);
+  logger.success(`搜索"关灯"得到: ${searchResults.length} 条结果`);
 }
 
 main().catch((err) => {

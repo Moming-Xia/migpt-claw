@@ -88,12 +88,16 @@ export class LocalDebugContext {
 
   /**
    * 初始化服务
+   * @param announceOnStart 是否在初始化时播报启动消息，调试时默认关闭
    */
-  async init(): Promise<boolean> {
+  async init(announceOnStart: boolean = false): Promise<boolean> {
     try {
       logger.section('初始化 MiService');
 
-      const success = await MiService.init(this.config, this.deviceName);
+      const success = await MiService.init({
+        ...this.config,
+        announceOnStart,
+      }, this.deviceName);
 
       if (success) {
         this.initialized = true;
@@ -338,15 +342,20 @@ export class LocalDebugContext {
  * 初始化 MiService
  * @param config 环境配置
  * @param deviceName 设备名称
+ * @param announceOnStart 是否在初始化时播报启动消息，调试时默认关闭
  * @returns 初始化是否成功
  */
 export async function initMiService(
   config: MiServiceConfig,
   deviceName: string,
+  announceOnStart: boolean = false,
 ): Promise<boolean> {
   logger.section('初始化 MiService');
   try {
-    const success = await MiService.init(config, deviceName);
+    const success = await MiService.init({
+      ...config,
+      announceOnStart,
+    }, deviceName);
     if (!success) {
       logger.error('初始化失败');
       return false;

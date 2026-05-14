@@ -29,14 +29,16 @@ export async function getAccount(_account: MiAccount): Promise<MiAccount | undef
       nonce: account.pass.nonce || '',
     };
     // 尝试直接获取设备列表，如果失败再重新登录
-    // 根据 sid 选择调用对应的服务
+    // 注意：必须清除 account.device，否则 getDevice() 在 API 返回 401 时会保留
+    // 旧的 device，导致缓存状态被误判为有效（即 stale device 误通过检查）
+    const freshAccount = { ...account, device: undefined };
     let devices: any;
     if (account.sid === 'micoapi') {
-      devices = await MiNA.getDevice(account as any);
+      devices = await MiNA.getDevice(freshAccount as any);
     } else if (account.sid === 'xiaomiio') {
-      devices = await MIoT.getDevice(account as any);
+      devices = await MIoT.getDevice(freshAccount as any);
     } else {
-      devices = account;
+      devices = freshAccount;
     }
     if (devices.device) {
       console.log('✅ 使用缓存的登录态成功');

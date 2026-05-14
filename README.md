@@ -45,7 +45,7 @@ openclaw plugins install ./migpt-claw-1.0.0.tgz
 **配置说明**：
 - `userId`：小米 ID（数字，在小米账号「个人信息」-「小米 ID」查看）
 - `password`：小米账号密码
-- `passToken`：登录辅助凭证，避免验证码（推荐配置）
+- `passToken`：登录辅助凭证，配合密码一起使用，可降低触发验证码的概率（推荐配置，但不能替代密码）
 - `devices`：小爱音箱设备名称列表
 - `announceOnStart`：启动时是否播报上线文案
 - `startupMessage`：上线播报文案
@@ -120,9 +120,9 @@ openclaw gateway restart
 
 ### 登录失败
 
-**错误**: `❌ 本次登录需要验证码，请使用 passToken 重新登录`
+**错误**: `❌ 本次登录需要验证码，请检查 passToken 是否正确`
 
-**解决**: 使用 passToken 替代密码登录，或尝试多次登录直到不需要验证码
+**解决**: passToken 作为辅助 Cookie 可降低验证码触发概率，但**不能替代密码**。请同时配置 `password` 和 `passToken`，缺少密码时 session 失效后将无法自动重新登录
 
 ### 设备未找到
 

@@ -227,9 +227,9 @@ export const miGPTPlugin: ChannelPlugin<ResolvedMiAccount> = {
                   ?? '收到，处理中';
 
                 try {
-                  MiSpeaker.abortXiaoAI();
-                  MiSpeaker.stop();
-                  MiSpeaker.play({ text: receiveMessage });
+                  await MiSpeaker.abortXiaoAI();
+                  await MiSpeaker.stop();
+                  await MiSpeaker.play({ text: receiveMessage });
                 } catch (err) {
                   log?.error(`[migpt:${account.accountId}] Failed to play receive message: ${err}`);
                 }
@@ -284,34 +284,33 @@ export const miGPTPlugin: ChannelPlugin<ResolvedMiAccount> = {
 
               // 默认的音箱场景提示词（如果没有配置 systemPrompt）
               const DEFAULT_SPEAKER_PROMPT = `【音箱播报规范 - 必须遵守】
-你是一个智能音箱助手，通过语音与用户交流。请遵守以下规范：
+                你正在发送语音消息给用户。请遵守以下规范：
 
-📢 播报原则：
-1. 简短优先：单次播报控制在 100 字以内，超过请拆分或改用其他渠道
-2. 纯文字：只输出适合语音播报的纯文字，不要包含 URL、代码、复杂格式
-3. 自然口语：使用简短、清晰的口语表达，避免长句和复杂结构
+                📢 播报原则：
+                1. 简短优先：单次播报控制在 100 字以内，超过请拆分或改用其他渠道
+                2. 纯文字：只输出适合语音播报的纯文字，不要包含 URL、代码、复杂格式
+                3. 自然口语：使用简短、清晰的口语表达，避免长句和复杂结构
 
-🚫 不适合播报的内容（应改用其他渠道）：
-- 代码片段、技术文档
-- 长篇文章、报告（>300 字）
-- 复杂数据表格、列表
-- 图片、视频、文件等多媒体内容
-- URL 链接、邮箱地址
+                🚫 不适合播报的内容（应改用其他渠道）：
+                - 代码片段、技术文档
+                - 长篇文章、报告（>300 字）
+                - 复杂数据表格、列表
+                - 图片、视频、文件等多媒体内容
+                - URL 链接、邮箱地址
 
-✅ 正确做法示例：
-- 短回复："好的，已为你设置明天早上 8 点的闹钟"
-- 长内容分流："由于内容较长，详细报告已发送到你的手机/微信，请查看"
-- 代码场景："代码已生成并发送到你的邮箱，请注意查收"
-- 多媒体场景："这张图片很有趣，已发送到你的手机查看"`;
+                ✅ 正确做法示例：
+                - 短回复："好的，已为你设置明天早上 8 点的闹钟"
+                - 长内容分流："由于内容较长，详细报告已发送到你的手机/微信，请查看"
+                - 代码场景："代码已生成并发送到你的邮箱，请注意查收"
+                - 多媒体场景："这张图片很有趣，已发送到你的手机查看"`;
 
               // 构建 AI 看到的完整上下文
               const contextInfo = `你正在通过小米音箱与用户对话。
-
-【会话上下文】
-- 设备：${deviceName}
-- 用户：${deviceName}
-- 消息 ID: ${deviceName}-${msg.timestamp}
-- 当前时间：${new Date(msg.timestamp).toLocaleString('zh-CN')}`;
+                【会话上下文】
+                - 设备：${deviceName}
+                - 用户：${deviceName}
+                - 消息 ID: ${deviceName}-${msg.timestamp}
+                - 当前时间：${new Date(msg.timestamp).toLocaleString('zh-CN')}`;
 
               // BodyForAgent: AI 实际看到的完整上下文（动态数据 + 系统提示 + 用户输入）
               const agentBody = systemPrompts.length > 0
@@ -350,7 +349,7 @@ export const miGPTPlugin: ChannelPlugin<ResolvedMiAccount> = {
                     log?.info(`[migpt:${account.accountId}] deliver called, kind: ${info.kind}`);
                     // 这里可以处理 AI 的回复并发送到音箱
                     if (payload.text) {
-                      MiSpeaker.play({ text: payload.text });
+                      await MiSpeaker.play({ text: payload.text });
                     }
                   },
                 },

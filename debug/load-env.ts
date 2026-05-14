@@ -53,6 +53,9 @@ export function loadEnvFile(filePath: string): void {
   }
 }
 
+// 标记当前为本地调试模式，io.ts 据此将缓存目录改为 process.cwd()/.migpt
+process.env.MIGPT_DEBUG = '1';
+
 // 自动加载 envConfig/.env.local
 try {
   const envLocalPath = resolve(__dirname, '../envConfig/.env.local');

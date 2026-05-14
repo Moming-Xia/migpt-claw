@@ -5,7 +5,7 @@
  * - MiNA 设备（主要是音箱）
  * - MIoT 设备（智能家居设备）
  * 
- * 缓存文件位置：.migpt/devices.json
+ * 缓存文件位置：~/.openclaw/plugins/migpt-claw/devices.json
  */
 
 import { readJSON, writeJSON } from './utils/io.js';

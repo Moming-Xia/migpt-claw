@@ -1,15 +1,18 @@
 import { promises as fs } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 /**
  * 获取数据目录
+ *
+ * - 调试模式（MIGPT_DEBUG=1）：`<cwd>/.migpt/`，方便本地直接查看缓存文件
+ * - 生产模式：`~/.openclaw/plugins/migpt-claw/`，与 cwd 无关，重启后稳定
  */
 export function getDataDir(subdir?: string): string {
-  const baseDir = join(process.cwd(), '.migpt');
-  if (subdir) {
-    return join(baseDir, subdir);
-  }
-  return baseDir;
+  const baseDir = process.env.MIGPT_DEBUG
+    ? join(process.cwd(), '.migpt')
+    : join(homedir(), '.openclaw', 'plugins', 'migpt-claw');
+  return subdir ? join(baseDir, subdir) : baseDir;
 }
 
 /**

@@ -131,10 +131,8 @@ export function resolveMiAccount(
   };
 
   // 检查是否已配置
-  const configured = !!(
-    mergedConfig.userId &&
-    (mergedConfig.passToken || mergedConfig.password)
-  );
+  // passToken 不能替代 password：session 失效时必须有 password 才能重新登录
+  const configured = !!(mergedConfig.userId && mergedConfig.password);
 
   return {
     accountId: id,

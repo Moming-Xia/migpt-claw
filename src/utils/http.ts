@@ -161,31 +161,62 @@ class TokenRefresher {
   }
 
   /**
-   * 刷新登录凭证并同步到本地
+   * 刷新登录凭证并同步到内存账户
+   *
+   * 使用动态 import 避免 http.ts ↔ account.ts 的循环依赖：
+   * account.ts 在模块初始化时引用了 Http（http.ts），
+   * 而 http.ts 只在函数体内（运行时）动态引入 account.ts，不会产生循环。
    */
-  async refreshToken(_err: any) {
-    // 注意：这里需要循环依赖，暂时简化处理
-    // 实际应该从配置中读取并刷新
-    return undefined;
+  async refreshToken(err: any) {
+    const account = err?.config?.account as MiAccount | undefined;
+    if (!account?.password) {
+      // 没有密码无法重新认证，直接放弃
+      console.error('❌ 刷新凭证失败：请求 config 中缺少 account 或 account.password');
+      return undefined;
+    }
+    try {
+      const { getAccount } = await import('../mi/account.js');
+      const newAccount = await getAccount({ ...account });
+      if (!newAccount?.serviceToken) {
+        return undefined;
+      }
+      // 1. 写回内存：通过请求携带的 setAccount 回调更新 MiNA/MIoT 实例的 account 对象
+      if (typeof err.config.setAccount === 'function') {
+        err.config.setAccount(newAccount);
+      }
+      // 2. 写回磁盘：同步更新 .mi.json，避免重启后用旧 token 浪费一次重新登录
+      //    写失败不影响本次刷新结果，只打 warning
+      try {
+        const { readJSON, writeJSON } = await import('../utils/io.js');
+        const service = account.sid === 'xiaomiio' ? 'miot' : 'mina';
+        const store: Record<string, any> = (await readJSON('.mi.json')) ?? {};
+        // 同样过滤明文密码
+        const { password: _pw, ...safeAccount } = newAccount as any;
+        store[service] = safeAccount;
+        await writeJSON('.mi.json', store);
+      } catch (e: any) {
+        console.warn('⚠️ 刷新后同步 .mi.json 失败（不影响本次请求）:', e?.message ?? e);
+      }
+      return newAccount;
+    } catch (e: any) {
+      console.error('❌ refreshToken 异常:', e?.message ?? e);
+      return undefined;
+    }
   }
 
   /**
-   * 重新请求
+   * 用刷新后的账户凭证重新发送原始请求
    */
   async retry(_err: any, account: any) {
-    // 更新 cookies
     const cookies = _err.config.cookies ?? {};
-    for (const key of ['serviceToken']) {
-      if (cookies[key] && account[key]) {
-        cookies[key] = account[key];
-      }
+    // 不论 key 是否原本存在，只要有新值就覆盖
+    if (account.serviceToken) {
+      cookies.serviceToken = account.serviceToken;
     }
-    for (const key of ['deviceSNProfile']) {
-      if (cookies[key] && account.device?.[key]) {
-        cookies[key] = account.device[key];
-      }
+    if (account.device?.deviceSNProfile) {
+      cookies.deviceSNProfile = account.device.deviceSNProfile;
     }
-    // 重新请求
+    _err.config.cookies = cookies;
     return _http(HTTPClient.buildConfig(_err.config)!);
   }
 }

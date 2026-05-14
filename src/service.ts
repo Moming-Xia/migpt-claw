@@ -124,8 +124,8 @@ class _MiService {
       assert(!!did, '❌ Speaker 缺少 did 参数');
       this._currentDeviceId = did;
       assert(
-        !!config.passToken || (!!config.userId && !!config.password),
-        '❌ Speaker 缺少 passToken 或 userId 和 password',
+        !!config.userId && !!config.password,
+        '❌ Speaker 缺少必需的登录凭证：userId 和 password（passToken 仅作辅助，不能替代密码）',
       );
 
       Debugger.debug = config.debug ?? false;

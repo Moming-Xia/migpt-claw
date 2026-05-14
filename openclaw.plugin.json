@@ -18,7 +18,7 @@
       },
       "passToken": {
         "type": "string",
-        "description": "小米 PassToken（可选，如果提供则不需要密码）"
+        "description": "小米 PassToken（可选，配合密码使用，可降低触发验证码概率，但不能替代密码）"
       },
       "devices": {
         "type": "array",

@@ -134,7 +134,7 @@ async function main() {
       - 按关键词搜索设备
       - 支持设备名称、型号、MAC 地址搜索
     
-    缓存文件位置: .migpt/devices.json
+    缓存文件位置: ~/.openclaw/plugins/migpt-claw/devices.json
     缓存有效期: 24 小时
   `);
 

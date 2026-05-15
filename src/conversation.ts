@@ -5,6 +5,26 @@ import { sleep } from './utils/parse.js';
 import type { IMessage } from './types.js';
 
 // ─────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────
+
+/**
+ * 合并两个关键词数组，去除重复项（大小写不敏感去重）。
+ */
+function mergeWords(base: string[], custom: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const w of [...base, ...custom]) {
+    const key = w.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(w);
+    }
+  }
+  return result;
+}
+
+// ─────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────
 
@@ -14,6 +34,18 @@ import type { IMessage } from './types.js';
  * 等价于原始 MiGPT 的 kAreYouOK 用法。
  */
 export const kAreYouOK = "¿ʞо ∩оʎ ǝɹɐ";
+
+/**
+ * 内置默认唤醒词。
+ * 用户通过 wakeWords 配置的自定义词会与这些默认词合并（取并集），而非替换。
+ */
+export const DEFAULT_WAKE_WORDS: string[] = ['小龙虾', '龙虾', 'AI'];
+
+/**
+ * 内置默认退出词。
+ * 用户通过 exitWords 配置的自定义词会与这些默认词合并（取并集），而非替换。
+ */
+export const DEFAULT_EXIT_WORDS: string[] = ['退出', '再见', '拜拜', '关闭对话', '闭嘴'];
 
 // ─────────────────────────────────────────────
 // Types
@@ -141,8 +173,9 @@ export class ConversationManager {
   constructor(deviceId: string, config: ConversationConfig = {}) {
     this.deviceId = deviceId;
     this._cfg = {
-      wakeWords: config.wakeWords ?? [],
-      exitWords: config.exitWords ?? [],
+      // 默认词与用户自定义词合并（取并集），保证默认词始终有效
+      wakeWords: mergeWords(DEFAULT_WAKE_WORDS, config.wakeWords ?? []),
+      exitWords: mergeWords(DEFAULT_EXIT_WORDS, config.exitWords ?? []),
       exitKeepAliveAfter: config.exitKeepAliveAfter ?? 30,
       enterMessage: config.enterMessage ?? '',
       exitMessage: config.exitMessage ?? '',
@@ -256,10 +289,17 @@ export class ConversationManager {
   // ─────────── Public API ───────────
 
   /**
-   * 热更新配置（不影响当前 KeepAlive 运行状态）
+   * 热更新配置（不影响当前 KeepAlive 运行状态）。
+   * wakeWords/exitWords 会与默认词重新合并，保证默认词始终有效。
    */
   updateConfig(config: Partial<ConversationConfig>): void {
-    this._cfg = { ...this._cfg, ...config };
+    this._cfg = {
+      ...this._cfg,
+      ...config,
+      // 始终保持默认词与用户自定义词的并集
+      wakeWords: mergeWords(DEFAULT_WAKE_WORDS, config.wakeWords ?? this._cfg.wakeWords),
+      exitWords: mergeWords(DEFAULT_EXIT_WORDS, config.exitWords ?? this._cfg.exitWords),
+    };
   }
 
   /**

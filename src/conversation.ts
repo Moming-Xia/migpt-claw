@@ -164,6 +164,9 @@ export class ConversationManager {
   /** AI 是否正在响应中（响应期间不播放保活静音） */
   private _responding = false;
 
+  /** AI 是否正在回复 */
+  private _replying = false;
+
   /** 超时自动退出计时器 */
   private _exitTimer?: ReturnType<typeof setTimeout>;
 
@@ -194,6 +197,14 @@ export class ConversationManager {
 
   get responding(): boolean {
     return this._responding;
+  }
+
+  get replying(): boolean {
+    return this._replying;
+  }
+
+  set replying(value: boolean) {
+    this._replying = value;
   }
 
   /**
@@ -246,19 +257,27 @@ export class ConversationManager {
       return;
     }
 
-    // 首消息回复：唤醒词触发且尚未进入 KeepAlive 时，在 AI 处理前播报提示
-    if (this._cfg.firstMessageReply && checkResult.isWake && !this._keepAlive) {
-      await MiSpeaker.play({ text: this._cfg.firstMessageContent }).catch(() => {});
-    }
+    // 进入连续对话状态
+    this.enterKeepAlive().catch(() => {});
 
     this.setResponding(true);
     try {
       await handler(msg, checkResult);
+      this._resetExitTimer();
     } finally {
       this.setResponding(false);
     }
+  }
 
-    await this.onAfterHandled(checkResult);
+  async stopSpeaking(): Promise<void> {
+    for (let i = 0; i < 1000; i++) {
+      const { status } = await MiSpeaker.getStatus() || {};
+      if (status === 'playing' && !this._replying) {
+        await MiSpeaker.stop();
+        return;
+      };
+      await sleep(100);
+    }
   }
 
   /**
@@ -329,6 +348,12 @@ export class ConversationManager {
       shouldHandle = isWake;
     }
 
+    if (isExit && this._keepAlive) {
+      // 说了退出词且当前在 KeepAlive → 退出连续对话
+      this.exitKeepAlive().catch(() => {});
+    }
+  
+
     return { shouldHandle, isWake, isExit };
   }
 
@@ -346,18 +371,15 @@ export class ConversationManager {
    * 若已处于 KeepAlive，则只重置超时计时器。
    */
   async enterKeepAlive(): Promise<void> {
-    if (this._keepAlive) {
-      this._resetExitTimer();
-      return;
+    // 先打断当前小米发出的消息
+    await this.stopSpeaking();
+    // 首消息回复：唤醒词触发且尚未进入 KeepAlive 时，在 AI 处理前播报提示
+    if (this._cfg.enterMessage && !this._keepAlive && this._cfg.firstMessageReply) {
+      await MiSpeaker.play({ text: this._cfg.enterMessage });
     }
 
     this._keepAlive = true;
     this._startKeepAliveLoop();
-    this._resetExitTimer();
-
-    if (this._cfg.enterMessage) {
-      await MiSpeaker.play({ text: this._cfg.enterMessage });
-    }
   }
 
   /**
@@ -372,22 +394,6 @@ export class ConversationManager {
 
     if (this._cfg.exitMessage) {
       await MiSpeaker.play({ text: this._cfg.exitMessage });
-    }
-  }
-
-  /**
-   * 在 OpenClaw 处理完一条消息后调用，根据结果更新 KeepAlive 状态。
-   *
-   * - 命中退出词 + 处于 KeepAlive → 退出
-   * - 命中唤醒词 或 处于 KeepAlive → 进入/续期 KeepAlive
-   */
-  async onAfterHandled(result: MessageCheckResult): Promise<void> {
-    if (!result.shouldHandle) return;
-
-    if (result.isExit && this._keepAlive) {
-      await this.exitKeepAlive();
-    } else if (result.isWake || this._keepAlive) {
-      await this.enterKeepAlive();
     }
   }
 

@@ -149,6 +149,29 @@ class _MiSpeaker {
     }
   }
 
+  async getStatus(): Promise<
+    | {
+        volume: number;
+        status: 'idle' | 'playing' | 'paused' | 'stopped' | 'unknown';
+        media_type?: number;
+        loop_type?: number;
+      }
+    | undefined
+  > {
+    if (!MiService.MiNA && !MiService.MiOT) {
+      return undefined;
+    }
+    try {      
+      if (MiService.MiNA) {
+        return await MiService.MiNA.getStatus();
+      } else {
+        return undefined;
+      }
+    } catch {
+      return undefined;
+    }
+  }
+
   /**
    * 中断小爱音箱的运行（重启设备）
    * 注意：重启需要大约 1-2s 的时间，在此期间无法使用小爱音箱自带的 TTS 服务

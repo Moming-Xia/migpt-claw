@@ -311,11 +311,14 @@ export const miGPTPlugin: ChannelPlugin<ResolvedMiAccount> = {
                 deliver: async (payload: { text?: string; mediaUrls?: string[]; mediaUrl?: string }, info: { kind: string }) => {
                   log?.info(`[migpt:${account.accountId}] deliver called, kind: ${info.kind}`);
                   if (payload.text) {
+                    convMgr.replying = true;
                     await MiSpeaker.play({ text: payload.text });
+                    convMgr.replying = false;
                   }
                 },
               },
             });
+            convMgr.setResponding(false);
           },
           onSkip: (msg) => {
             // 未命中唤醒词且非 KeepAlive 状态，跳过，由小爱自行处理

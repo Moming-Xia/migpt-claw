@@ -13,7 +13,7 @@ export function registerMigptSpeakerControlSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'set_volume',
     description: '设置小爱音箱的音量',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {
         volume: {
@@ -38,7 +38,7 @@ export function registerMigptSpeakerControlSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'get_volume',
     description: '获取小爱音箱的当前音量',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {},
     },
@@ -79,7 +79,7 @@ export function registerMigptSpeakerControlSkill(api: OpenClawPluginApi) {
 - 短回复："好的，已为你设置明天早上 8 点的闹钟"
 - 长内容分流："由于内容较长，详细报告已发送到你的手机/微信，请查看"
 - 代码场景："代码已生成并发送到你的邮箱，请注意查收"`,
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {
         text: {
@@ -102,7 +102,7 @@ export function registerMigptSpeakerControlSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'play_url',
     description: '播放音频链接',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {
         url: {
@@ -127,7 +127,7 @@ export function registerMigptSpeakerControlSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'pause_playback',
     description: '暂停小爱音箱当前播放',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {},
     },
@@ -144,7 +144,7 @@ export function registerMigptSpeakerControlSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'stop_playback',
     description: '停止小爱音箱当前播放',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {},
     },
@@ -161,7 +161,7 @@ export function registerMigptSpeakerControlSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'toggle_playback',
     description: '切换小爱音箱的播放/暂停状态',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {},
     },
@@ -180,7 +180,7 @@ export function registerMigptSpeakerControlSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'play_with_mina',
     description: '使用 MiNA 协议播放文字转语音（对某些设备效果更好）',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {
         text: {
@@ -203,7 +203,7 @@ export function registerMigptSpeakerControlSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'play_with_miot',
     description: '使用 MIoT 协议播放文字转语音（对某些智能家居设备支持更好）',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {
         text: {
@@ -228,7 +228,7 @@ export function registerMigptSpeakerControlSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'get_conversation_history',
     description: '获取小爱音箱的对话历史记录',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {
         limit: {
@@ -275,7 +275,7 @@ export function registerMigptSpeakerControlSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'get_last_conversation',
     description: '获取最后一条对话（用户提问）',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {},
     },
@@ -309,7 +309,7 @@ export function registerMigptSpeakerControlSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'search_conversation',
     description: '搜索对话历史中包含特定关键词的记录',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {
         keyword: {

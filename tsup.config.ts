@@ -3,7 +3,7 @@ import { defineConfig } from 'tsup';
 const isProd = process.env.NODE_ENV === 'production';
 
 export default defineConfig({
-  entry: ['index.ts', 'src/**/*.ts'],
+  entry: ['index.ts', 'src/**/*.ts', 'skills/migpt-smart-home/index.ts', 'skills/migpt-speaker-control/index.ts'],
   format: ['esm'],
   dts: true,
   splitting: false,

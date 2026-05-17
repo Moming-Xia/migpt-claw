@@ -43,7 +43,7 @@ export function registerMigptSmartHomeSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'find_device',
     description: '搜索设备并返回设备信息（含支持的协议标识）。控制设备前应先调用此工具确认设备及其协议',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {
         keyword: {
@@ -95,7 +95,7 @@ export function registerMigptSmartHomeSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'get_cached_devices',
     description: '获取缓存的所有家居设备列表（含协议标识：mina 或 miot）',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {},
     },
@@ -159,7 +159,7 @@ export function registerMigptSmartHomeSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'get_device_cache_stats',
     description: '获取设备缓存的统计信息',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {},
     },
@@ -185,7 +185,7 @@ export function registerMigptSmartHomeSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'search_devices',
     description: '搜索指定名称或型号的设备（按协议分组返回）',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {
         keyword: {
@@ -217,7 +217,7 @@ export function registerMigptSmartHomeSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'refresh_device_cache',
     description: '刷新设备缓存，重新查询所有家居设备（MiNA 和 MIoT）',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {},
     },
@@ -239,7 +239,7 @@ export function registerMigptSmartHomeSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'get_property',
     description: '获取设备的属性值（自动根据设备 ID 选择 MIoT 协议）',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {
         siid: {
@@ -300,7 +300,7 @@ export function registerMigptSmartHomeSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'set_property',
     description: '设置设备的属性值（自动根据设备 ID 选择 MIoT 协议）',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {
         siid: {
@@ -373,7 +373,7 @@ export function registerMigptSmartHomeSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'do_action',
     description: '调用设备的某个动作（自动根据设备 ID 选择 MIoT 协议）',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {
         siid: {
@@ -444,7 +444,7 @@ export function registerMigptSmartHomeSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'rpc_call',
     description: '直接调用设备的 RPC 指令（高级用法，自动根据设备 ID 选择 MIoT 协议）',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {
         method: {
@@ -511,7 +511,7 @@ export function registerMigptSmartHomeSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'smart_toggle',
     description: '切换设备开关状态（常用于灯光、插座等）。需要提供设备 ID 以自动选择协议',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {
         siid: {
@@ -584,7 +584,7 @@ export function registerMigptSmartHomeSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'smart_brightness',
     description: '调整灯光或其他设备的亮度（0-100）。需要提供设备 ID 以自动选择协议',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {
         siid: {
@@ -657,7 +657,7 @@ export function registerMigptSmartHomeSkill(api: OpenClawPluginApi) {
   api.registerTool({
     name: 'smart_color_temperature',
     description: '调整灯光的色温（需要设备支持）。需要提供设备 ID 以自动选择协议',
-    inputSchema: {
+    parameters: {
       type: 'object',
       properties: {
         siid: {

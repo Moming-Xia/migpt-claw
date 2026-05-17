@@ -3,6 +3,59 @@
   "name": "MiGPT Channel",
   "description": "小米小爱音箱 OpenClaw Channel 插件",
   "channels": ["migpt"],
+  "contracts": {
+    "tools": [
+      "find_device",
+      "get_cached_devices",
+      "get_device_cache_stats",
+      "search_devices",
+      "refresh_device_cache",
+      "get_property",
+      "set_property",
+      "do_action",
+      "rpc_call",
+      "smart_toggle",
+      "smart_brightness",
+      "smart_color_temperature",
+      "set_volume",
+      "get_volume",
+      "play_text",
+      "play_url",
+      "pause_playback",
+      "stop_playback",
+      "toggle_playback",
+      "play_with_mina",
+      "play_with_miot",
+      "get_conversation_history",
+      "get_last_conversation",
+      "search_conversation"
+    ]
+  },
+  "channelConfigs": {
+    "migpt": {
+      "schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "userId": { "type": "string" },
+          "password": { "type": "string" },
+          "passToken": { "type": "string" },
+          "devices": { "type": "array", "items": { "type": "string" } },
+          "systemPrompt": { "type": "string" },
+          "heartbeat": { "type": "number", "default": 1000 },
+          "speakerControl": { "type": "string", "enum": ["mina", "miot"] },
+          "announceOnStart": { "type": "boolean", "default": false },
+          "startupMessage": { "type": "string" },
+          "acknowledgeOnReceive": { "type": "boolean", "default": false },
+          "receiveMessage": { "type": "string" }
+        },
+        "additionalProperties": {}
+      },
+      "label": "小爱音箱",
+      "description": "通过小爱音箱与 OpenClaw 语音对话"
+    }
+  },
   "skills": ["./skills/migpt-speaker-control", "./skills/migpt-smart-home"],
   "configSchema": {
     "type": "object",

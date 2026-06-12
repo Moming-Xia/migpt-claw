@@ -13,6 +13,12 @@ export interface IMessage {
   text: string;
   timestamp: number;
   deviceId: string;
+  // 小爱的回答
+  answers?: Array<{
+    type: string;
+    tts?: string;
+    url?: string;
+  }>;
 }
 
 // Device types

@@ -36,10 +36,33 @@ export interface MiGPTConfig extends MiServiceConfig {
   announceOnStart?: boolean;
   /** 上线播报文案 */
   startupMessage?: string;
-  /** 收到消息时是否回复收到 */
-  acknowledgeOnReceive?: boolean;
-  /** 收到消息回复文案 */
-  receiveMessage?: string;
+
+  // ── 会话管理 ──
+  /**
+   * 唤醒关键词列表。配置后，只有消息中包含这些词才会触发 OpenClaw；
+   * 不配置（或空数组）则处理所有消息。
+   * 示例：["小龙虾", "AI", "龙虾"]
+   */
+  wakeWords?: string[];
+  /**
+   * 退出连续对话关键词列表。说出这些词后自动退出 KeepAlive 模式。
+   * 示例：["退出", "再见", "关闭对话"]
+   */
+  exitWords?: string[];
+  /** 无响应多久后自动退出连续对话（秒，默认 30） */
+  exitKeepAliveAfter?: number;
+  /** 进入连续对话时的播报提示语，如 "好的，我在听" */
+  enterMessage?: string;
+  /** 退出连续对话时的播报提示语，如 "好的，退出对话" */
+  exitMessage?: string;
+  /** 保活检测间隔（毫秒，默认 3000） */
+  keepAliveInterval?: number;
+  /** 连续对话期间的消息轮询间隔（毫秒，默认 300） */
+  keepAliveHeartbeat?: number;
+  /** 连续对话首消息回复（不开启则不播报） */
+  firstMessageReply?: boolean;
+  /** 首消息回复内容 */
+  firstMessageContent?: string;
 }
 
 /**
@@ -58,10 +81,25 @@ export interface MiGPTAccountConfig extends MiServiceConfig {
   announceOnStart?: boolean;
   /** 上线播报文案 */
   startupMessage?: string;
-  /** 收到消息时是否回复收到 */
-  acknowledgeOnReceive?: boolean;
-  /** 收到消息回复文案 */
-  receiveMessage?: string;
+  // ── 会话管理 ──
+  /** 唤醒关键词列表 */
+  wakeWords?: string[];
+  /** 退出连续对话关键词列表 */
+  exitWords?: string[];
+  /** 无响应多久后自动退出连续对话（秒，默认 30） */
+  exitKeepAliveAfter?: number;
+  /** 进入连续对话时的播报提示语 */
+  enterMessage?: string;
+  /** 退出连续对话时的播报提示语 */
+  exitMessage?: string;
+  /** 保活检测间隔（毫秒，默认 3000） */
+  keepAliveInterval?: number;
+  /** 连续对话期间的消息轮询间隔（毫秒，默认 300） */
+  keepAliveHeartbeat?: number;
+  /** 连续对话首消息回复（不开启则不播报） */
+  firstMessageReply?: boolean;
+  /** 首消息回复内容 */
+  firstMessageContent?: string;
 }
 
 /**
@@ -128,13 +166,21 @@ export function resolveMiAccount(
     timeout: accountConfig.timeout ?? migptCfg?.timeout,
     devices: accountConfig.devices ?? migptCfg?.devices ?? [],
     speakerControl: accountConfig.speakerControl ?? migptCfg?.speakerControl,
+    // 会话管理字段
+    wakeWords: accountConfig.wakeWords ?? migptCfg?.wakeWords,
+    exitWords: accountConfig.exitWords ?? migptCfg?.exitWords,
+    exitKeepAliveAfter: accountConfig.exitKeepAliveAfter ?? migptCfg?.exitKeepAliveAfter,
+    enterMessage: accountConfig.enterMessage ?? migptCfg?.enterMessage,
+    exitMessage: accountConfig.exitMessage ?? migptCfg?.exitMessage,
+    keepAliveInterval: accountConfig.keepAliveInterval ?? migptCfg?.keepAliveInterval,
+    keepAliveHeartbeat: accountConfig.keepAliveHeartbeat ?? migptCfg?.keepAliveHeartbeat,
+    firstMessageReply: accountConfig.firstMessageReply ?? migptCfg?.firstMessageReply,
+    firstMessageContent: accountConfig.firstMessageContent ?? migptCfg?.firstMessageContent,
   };
 
   // 检查是否已配置
-  const configured = !!(
-    mergedConfig.userId &&
-    (mergedConfig.passToken || mergedConfig.password)
-  );
+  // passToken 不能替代 password：session 失效时必须有 password 才能重新登录
+  const configured = !!(mergedConfig.userId && mergedConfig.password);
 
   return {
     accountId: id,

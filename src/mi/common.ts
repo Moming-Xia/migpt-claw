@@ -32,6 +32,9 @@ export function updateMiAccount(account: MiAccount): (updated: MiAccount) => voi
       if (!account.pass) account.pass = { code: 0 } as MiPass;
       (account.pass as MiPass).passToken = updated.pass.passToken;
     }
+    if (updated.device) {
+      account.device = updated.device;
+    }
   };
 }
 
@@ -99,7 +102,9 @@ export async function getMiService(config: {
   if (!result?.serviceToken || !result.pass?.ssecurity) {
     return undefined;
   }
-  store[service] = result;
+  // 只持久化 session 相关字段，明文密码不落盘
+  const { password: _pw, ...safeResult } = result as any;
+  store[service] = safeResult;
   await writeJSON(kConfigFile, store);
   return service === 'miot' ? new MIoT(result as any) : new MiNA(result as any);
 }

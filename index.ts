@@ -2,6 +2,8 @@ import type { OpenClawPluginApi } from 'openclaw/plugin-sdk';
 import { emptyPluginConfigSchema } from 'openclaw/plugin-sdk';
 import { miGPTPlugin } from './src/channel.js';
 import { setMiGPTRuntime } from './src/runtime.js';
+import { registerMigptSmartHomeSkill } from './skills/migpt-smart-home/index.js';
+import { registerMigptSpeakerControlSkill } from './skills/migpt-speaker-control/index.js';
 
 const plugin = {
   id: 'migpt-claw',
@@ -11,6 +13,9 @@ const plugin = {
   register(api: OpenClawPluginApi) {
     setMiGPTRuntime(api.runtime);
     api.registerChannel({ plugin: miGPTPlugin });
+    // 注册全局可调用的技能工具
+    registerMigptSmartHomeSkill(api);
+    registerMigptSpeakerControlSkill(api);
   },
 };
 

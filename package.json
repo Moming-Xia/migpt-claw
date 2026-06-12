@@ -13,7 +13,16 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsup",
-    "dev": "tsup --watch"
+    "build:prod": "NODE_ENV=production tsup",
+    "pack": "pnpm build:prod && pnpm pack",
+    "release": "pnpm build:prod && pnpm publish --access public",
+    "dev": "tsup --watch",
+    "test": "tsx debug/test.ts",
+    "debug:full": "tsx debug/test-full.ts",
+    "debug:speaker": "tsx debug/test-speaker.ts",
+    "debug:smart": "tsx debug/test-smart-home.ts",
+    "debug:cache": "tsx debug/test-device-cache.ts",
+    "debug:token": "tsx debug/test-token-refresh.ts"
   },
   "files": [
     "dist",
@@ -47,7 +56,9 @@
     "@types/axios": "^0.9.36",
     "@types/node": "^22.14.0",
     "@types/pako": "^2.0.4",
+    "ts-node": "^10.9.2",
     "tsup": "^8.4.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.8.2"
   },
   "engines": {
@@ -56,11 +67,11 @@
   "sideEffects": false,
   "license": "MIT",
   "author": {
-    "name": "Leon",
-    "email": "leon@example.com"
+    "name": "Moming",
+    "email": "yu15574993992@foxmail.com"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/leon/migpt-claw.git"
+    "url": "git@github.com:Moming-Xia/migpt-claw.git"
   }
 }

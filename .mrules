@@ -1,0 +1,287 @@
+# migpt-claw 项目规范和上下文
+
+## 项目概述
+
+**migpt-claw** 是一个小米小爱音箱 OpenClaw Channel 插件，让小爱音箱成为龙虾语音助手。
+
+### 核心功能
+- 语音对话：对小爱音箱说话，龙虾语音回复
+- 流式输出：长文本分块播放，降低延迟
+- 智能分流：长内容/代码/多媒体自动引导至其他渠道
+- 状态提示：支持启动播报和收到消息提示音
+- Skills 支持：音箱全能控制、智能家居设备控制
+
+## 项目架构
+
+### 文件组织
+
+```
+src/                    # 核心代码
+  ├── channel.ts       # OpenClaw Channel 实现
+  ├── service.ts       # MiService 认证与服务管理
+  ├── speaker.ts       # MiSpeaker TTS 播放控制
+  ├── message.ts       # 消息轮询与去重
+  ├── config.ts        # 配置解析
+  ├── types.ts         # 类型定义
+  ├── mi/              # 小米服务协议层
+  │   ├── mina.ts     # MiNA 协议实现
+  │   ├── miot.ts     # MIoT 协议实现
+  │   └── account.ts  # 账号认证
+  └── utils/           # 工具函数库
+
+skills/                 # OpenClaw Skills
+  ├── migpt-speaker-control/   # 音箱全能控制 (12个工具)
+  └── migpt-smart-home/        # 智能家居控制 (8个工具)
+
+debug/                  # 本地调试系统
+  ├── env.ts           # 环境变量管理
+  ├── local.ts         # 本地调试工具类
+  ├── test-*.ts        # 测试脚本
+  └── GUIDE.md         # 详细文档
+```
+
+### 架构分层
+
+1. **Channel 层** - 与龙虾交互的 OpenClaw Channel 实现
+2. **Service 层** - MiService 和 MiSpeaker，管理小米 API 和设备控制
+3. **Protocol 层** - MiNA 和 MIoT 协议实现
+4. **Utils 层** - HTTP、编解码、加密等工具函数
+5. **Skills 层** - 龙虾可调用的工具集合
+
+## 技术栈
+
+- **语言** - TypeScript
+- **打包** - Tsup
+- **构建** - npm scripts
+- **协议** - MiNA (默认)、MIoT (可选)
+- **通信** - HTTP、WebSocket (MiNA)、Local Protocol (MIoT)
+
+## 开发规范
+
+### 代码风格
+- TypeScript 强类型
+- 使用 `async/await` 处理异步
+- 错误通过 `logger` 或 `throw` 处理
+- 敏感信息从 `.env.local` 读取，不硬编码
+
+### 模块职责
+
+| 模块 | 职责 |
+|------|------|
+| `channel.ts` | 接收龙虾消息、调用 MiService、回复结果 |
+| `service.ts` | 管理 MiService 和 MiSpeaker 实例 |
+| `speaker.ts` | TTS 播放、音量控制、支持多协议 |
+| `message.ts` | 轮询对话历史、去重、格式化 |
+| `mi/mina.ts` | MiNA 协议：登录、拉取消息、发送消息 |
+| `mi/miot.ts` | MIoT 协议：设备属性读写、动作调用 |
+
+### Skills 开发规范
+
+每个 Skill 必须：
+1. 通过 `api.registerTool()` 注册工具
+2. 实现 `execute(input: any)` 异步函数
+3. 返回 `{ success: boolean; data?: any; error?: string }`
+4. 使用 `console.log/error` 输出日志供龙虾查看
+
+### 错误处理
+
+- 登录失败：提示用户使用 passToken 或检查账号
+- 设备未找到：检查设备名称是否与米家 App 完全一致
+- 网络错误：自动重试或抛出异常让龙虾处理
+- 协议错误：记录详细日志便于调试
+
+## 配置说明
+
+### openclaw.plugin.json
+
+```json
+{
+  "id": "migpt-claw",
+  "version": "1.0.0",
+  "channels": ["migpt"],
+  "skills": ["migpt-speaker-control", "migpt-smart-home"]
+}
+```
+
+### 环境变量 (envConfig/.env.local)
+
+```bash
+MI_USER_ID=123456789          # 小米 ID (数字)
+MI_PASSWORD=password          # 小米账号密码
+MI_PASS_TOKEN=token           # passToken (可选，用于登录)
+MI_DEVICE_NAME=客厅音箱       # 音箱设备名称
+MI_SPEAKER_CONTROL=mina       # 音箱控制方式 (mina/miot)
+```
+
+## 常见任务
+
+### 添加新功能
+
+1. 定义类型 (`src/types.ts`)
+2. 实现功能 (`src/speaker.ts` 或 `src/mi/`)
+3. 在 Service 中暴露接口
+4. 在 Skill 中注册工具 (`api.registerTool`)
+
+### 添加新 Skill
+
+1. 创建目录 `skills/my-skill/`
+2. 创建 `index.ts`（实现 `export function setup(api)`）
+3. 创建 `SKILL.md`（工具文档）
+4. 在 `openclaw.plugin.json` 的 skills 中添加
+5. 在 `package.json` 的 build 脚本中打包
+
+### 调试功能
+
+使用本地调试系统而不是依赖龙虾：
+
+```bash
+# 完整诊断
+npm run debug:full
+
+# 音箱功能测试
+npm run debug:speaker
+
+# 智能家居测试
+npm run debug:smart
+
+# 自定义测试
+npx ts-node debug/test-my.ts
+```
+
+## 代码示例
+
+### 注册工具 (Skills)
+
+```typescript
+api.registerTool({
+  name: 'play_tts',
+  execute: async (input: { text: string }) => {
+    try {
+      await MiSpeaker.play({ text: input.text });
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: String(err) };
+    }
+  }
+});
+```
+
+### 调用 MiService
+
+```typescript
+// 初始化
+const service = await MiService.init(config, deviceName);
+
+// 获取对话历史
+const conversations = await MiService.MiNA.getConversations({
+  limit: 10,
+  timestamp: Date.now()
+});
+
+// 设置设备属性 (MIoT)
+await MiService.MiOT.setProperty(siid, piid, value);
+```
+
+### 本地调试
+
+```typescript
+import { createDebugContext, logger } from './debug/local.js';
+
+const ctx = await createDebugContext();
+if (await ctx.init()) {
+  await ctx.testTts('Hello');
+  logger.success('测试完成');
+}
+```
+
+## 关键概念
+
+### MiNA vs MIoT
+
+- **MiNA**：小爱音箱标准协议，支持消息轮询、TTS 播放
+- **MIoT**：小米设备通用协议，支持设备属性读写、动作调用
+- 大多数设备使用 MiNA，某些型号需要 MIoT (LX04、X10A 等)
+
+### 消息轮询
+
+- `message.ts` 定期调用 `MiNA.getConversations()` 获取用户消息
+- 去重逻辑：比较 `id` 和 `timestamp` 避免重复处理
+- 格式化：提取 `query` 和 `answers[0].text` 供龙虾处理
+
+### 播报规范
+
+- 简短回复（<50字）：直接播报
+- 长文本（>50字）：分块播放，每块 30-50 字
+- 代码/数据：告知用户已通过其他渠道发送
+- 多媒体：不支持，提示用户查看其他渠道
+
+## 常见问题
+
+**Q: 如何添加新的音箱控制方式？**
+A: 在 `src/speaker.ts` 添加新方法，在 Skill 中注册工具。
+
+**Q: 如何支持新的小米设备？**
+A: 根据设备支持情况选择 MiNA 或 MIoT，在 `openclaw.plugin.json` 配置中指定。
+
+**Q: 如何本地测试？**
+A: 使用 `debug/` 系统，从 `.env.local` 读取配置，运行 `npm run debug:*` 或自定义测试脚本。
+
+**Q: 敏感信息如何保护？**
+A: 使用 `envConfig/.env.local`，已加入 `.gitignore`，不提交到 Git。调试系统通过 `load-env.ts` 自动加载环境变量。
+
+## 依赖管理
+
+### 主要依赖
+
+- **用于小米服务** - 内部实现 (miservice-like)
+- **用于 HTTP** - 内置 utils/http.ts
+- **用于加密** - crypto (Node.js 内置)
+
+### 开发依赖
+
+- **TypeScript** - 类型检查
+- **Tsup** - 打包工具
+- **ts-node** - 运行 TypeScript 脚本
+
+## Git 规范
+
+- **分支** - feature/*, bugfix/*, hotfix/*
+- **.gitignore** - 已配置，保护 `.env.local` 和构建产物
+- **提交** - 描述清晰，引用相关 issue
+
+## 性能优化
+
+1. **消息去重** - 避免重复处理相同消息
+2. **流式播放** - 长文本分块，降低延迟
+3. **缓存** - 设备列表、对话历史等可考虑缓存
+4. **连接复用** - MiNA WebSocket 保持连接
+
+## 调试技巧
+
+1. 启用详细日志：在 `debug/local.ts` 中修改 logger 级别
+2. 性能基准：`test-full.ts` 包含性能测试
+3. 协议追踪：捕获 HTTP/WebSocket 请求查看协议细节
+4. 诊断报告：运行 `npm run debug:full` 生成完整诊断
+
+## 待办事项范例
+
+- [ ] 添加新协议支持
+- [ ] 完善错误提示文案
+- [ ] 增加性能基准测试
+- [ ] 支持更多小米设备型号
+
+## 相关链接
+
+- MiGPT 原项目：https://github.com/idootop/migpt-next
+- MiService 库：https://github.com/yihong0618/MiService
+- OpenClaw 文档：(本地 openclaw.plugin.json)
+
+## 贡献指南
+
+1. Fork 项目
+2. 创建特性分支 (`git checkout -b feature/xyz`)
+3. 提交代码 (`git commit -am 'Add feature'`)
+4. 推送到分支 (`git push origin feature/xyz`)
+5. 创建 Pull Request
+
+确保代码通过 TypeScript 检查、包含适当测试、更新相关文档。

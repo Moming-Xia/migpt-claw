@@ -13,11 +13,10 @@ import {
 import { miOutbound } from './outbound.js';
 import { miGPTOnboardingAdapter } from './onboarding.js';
 import { MiService } from './service.js';
-import { MiMessage } from './message.js';
-import { sleep } from './utils/parse.js';
 import { Debugger } from './utils/debug.js';
 import { MiSpeaker } from './speaker.js';
 import { getMiGPTRuntime } from './runtime.js';
+import { getConversationManager, disposeConversationManager } from './conversation.js';
 
 const meta = {
   id: 'migpt',
@@ -48,14 +47,28 @@ export const miGPTPlugin: ChannelPlugin<ResolvedMiAccount> = {
   reload: { configPrefixes: ['channels.migpt'] },
   onboarding: miGPTOnboardingAdapter,
 
-  // 新增：Agent Prompt 配置，用于定制 AI 在音箱场景下的行为规范
+  // Agent Prompt 配置：将渠道感知规范作为 system prompt 级别注入给 OpenClaw（播报规范在 skill 工具描述中）
   agentPrompt: {
-    description: '音箱播报规范',
+    description: '渠道感知规范',
     getConfig: (cfg: any) => {
       const migptCfg = cfg.channels?.migpt;
+
+      // 渠道感知规范（system prompt 级别）
+      // 具体的播报规范放在 migpt-speaker-control skill 的工具描述中，避免污染全局上下文
+      const BASE_SYSTEM_PROMPT = `【渠道感知规范 - 必须遵守】
+1. 当用户通过音箱输入时，优先使用语音对话进行输出
+2. 当用户通过非音箱渠道输入时，降低语音输出优先级，避免打扰用户
+3. 当主动调用音箱控制技能（migpt-speaker-control）操作设备时，优先通过语音播报通知用户`;
+
+      // 用户自定义 systemPrompt 追加在基础规范之后
+      const customPrompt = migptCfg?.systemPrompt;
+      const systemPrompt = customPrompt
+        ? `${BASE_SYSTEM_PROMPT}\n\n${customPrompt}`
+        : BASE_SYSTEM_PROMPT;
+
       return {
         enabled: true,
-        systemPrompt: migptCfg?.systemPrompt,
+        systemPrompt,
       };
     },
     applyConfig: (cfg: any, updates: any) => {
@@ -185,6 +198,19 @@ export const miGPTPlugin: ChannelPlugin<ResolvedMiAccount> = {
       const devicePromises = devices.map(async (deviceName: string) => {
         log?.info(`[migpt:${account.accountId}] Starting poller for device: ${deviceName}`);
 
+        // 初始化会话管理器
+        const convMgr = getConversationManager(deviceName, {
+          wakeWords: account.config.wakeWords,
+          exitWords: account.config.exitWords,
+          exitKeepAliveAfter: account.config.exitKeepAliveAfter,
+          enterMessage: account.config.enterMessage,
+          exitMessage: account.config.exitMessage,
+          keepAliveInterval: account.config.keepAliveInterval,
+          keepAliveHeartbeat: account.config.keepAliveHeartbeat,
+          firstMessageReply: account.config.firstMessageReply,
+          firstMessageContent: account.config.firstMessageContent,
+        });
+
         // 初始化服务（传递启动播报配置）
         const initSuccess = await MiService.init({
           ...account.config,
@@ -210,163 +236,105 @@ export const miGPTPlugin: ChannelPlugin<ResolvedMiAccount> = {
         // 获取轮询间隔
         const heartbeat = cfg.channels?.migpt?.heartbeat ?? 1000;
 
-        // 轮询消息
-        while (!abortSignal.aborted) {
-          try {
-            const msg = await MiMessage.fetchNextMessage(deviceName);
-            if (msg) {
-              log?.info(`[migpt:${account.accountId}] Received message from ${deviceName}: ${msg.text.slice(0, 50)}...`);
+        // 启动轮询（阻塞直到 abortSignal 触发）
+        await convMgr.startPolling({
+          abortSignal,
+          defaultHeartbeat: heartbeat,
+          onMessage: async (msg) => {
+            log?.info(`[migpt:${account.accountId}] Received message from ${deviceName}: ${msg.text.slice(0, 50)}...`);
 
-              // ============ 收到消息时回复收到 ============
-              const acknowledgeOnReceive = account.config.acknowledgeOnReceive
-                ?? cfg.channels?.migpt?.acknowledgeOnReceive ?? false;
+            // 记录活动
+            const pluginRuntime = getMiGPTRuntime();
+            pluginRuntime.channel.activity.record({
+              channel: 'migpt',
+              accountId: account.accountId,
+              direction: 'inbound',
+            });
 
-              if (acknowledgeOnReceive) {
-                const receiveMessage = account.config.receiveMessage
-                  ?? cfg.channels?.migpt?.receiveMessage
-                  ?? '收到，处理中';
+            // 构建路由
+            const fromAddress = `migpt:${deviceName}`;
+            const toAddress = `migpt:${account.accountId}`;
+            const sessionKey = `${account.accountId}:${deviceName}`;
 
-                try {
-                  MiSpeaker.abortXiaoAI();
-                  MiSpeaker.stop();
-                  MiSpeaker.play({ text: receiveMessage });
-                } catch (err) {
-                  log?.error(`[migpt:${account.accountId}] Failed to play receive message: ${err}`);
-                }
-              }
+            // 构建消息体
+            const envelopeOptions = pluginRuntime.channel.reply.resolveEnvelopeFormatOptions(cfg);
+            const body = pluginRuntime.channel.reply.formatInboundEnvelope({
+              Body: msg.text,
+              BodyForAgent: msg.text,
+              From: fromAddress,
+              To: toAddress,
+              SessionKey: sessionKey,
+              ChatType: 'direct',
+              SenderId: deviceName,
+              SenderName: deviceName,
+              Provider: 'migpt',
+              Surface: 'migpt',
+              MessageSid: `${deviceName}-${msg.timestamp}`,
+              Timestamp: msg.timestamp,
+              OriginatingChannel: 'migpt',
+              envelopeOptions,
+            });
 
-              // 记录活动
-              const pluginRuntime = getMiGPTRuntime();
-              pluginRuntime.channel.activity.record({
-                channel: 'migpt',
-                accountId: account.accountId,
-                direction: 'inbound',
-              });
+            // 构建 AI 看到的动态上下文（设备信息 + KeepAlive 状态 + 用户输入）
+            // 注：渠道感知规范和播报规范已通过 agentPrompt 注入为 system prompt，此处只传每次消息的动态数据
+            const contextInfo = convMgr.buildContextInfo(msg);
+            const agentBody = `${contextInfo}\n\n${msg.text}`;
 
-              // 构建路由
-              const fromAddress = `migpt:${deviceName}`;
-              const toAddress = `migpt:${account.accountId}`;
-              const sessionKey = `${account.accountId}:${deviceName}`;
+            // 构建上下文
+            const ctxPayload = pluginRuntime.channel.reply.finalizeInboundContext({
+              Body: body,
+              BodyForAgent: agentBody,
+              RawBody: msg.text,
+              CommandBody: msg.text,
+              From: fromAddress,
+              To: toAddress,
+              SessionKey: sessionKey,
+              AccountId: account.accountId,
+              ChatType: 'direct',
+              SenderId: deviceName,
+              SenderName: deviceName,
+              Provider: 'migpt',
+              Surface: 'migpt',
+              MessageSid: `${deviceName}-${msg.timestamp}`,
+              Timestamp: msg.timestamp,
+              OriginatingChannel: 'migpt',
+              OriginatingTo: toAddress,
+              CommandAuthorized: true,
+            });
 
-              // ============ 系统提示词注入 ============
-              // 收集系统提示词（账户级别 + 全局）
-              const systemPrompts: string[] = [];
-              
-              // 账户级别的 systemPrompt
-              if (account.config.systemPrompt) {
-                systemPrompts.push(account.config.systemPrompt);
-              }
-              
-              // 全局 systemPrompt
-              const globalSystemPrompt = (cfg as any).channels?.migpt?.systemPrompt;
-              if (globalSystemPrompt && globalSystemPrompt !== account.config.systemPrompt) {
-                systemPrompts.push(globalSystemPrompt);
-              }
-
-              // 构建消息体
-              const envelopeOptions = pluginRuntime.channel.reply.resolveEnvelopeFormatOptions(cfg);
-              const body = pluginRuntime.channel.reply.formatInboundEnvelope({
-                Body: msg.text,
-                BodyForAgent: msg.text,
-                From: fromAddress,
-                To: toAddress,
-                SessionKey: sessionKey,
-                ChatType: 'direct',
-                SenderId: deviceName,
-                SenderName: deviceName,
-                Provider: 'migpt',
-                Surface: 'migpt',
-                MessageSid: `${deviceName}-${msg.timestamp}`,
-                Timestamp: msg.timestamp,
-                OriginatingChannel: 'migpt',
-                envelopeOptions,
-              });
-
-              // 默认的音箱场景提示词（如果没有配置 systemPrompt）
-              const DEFAULT_SPEAKER_PROMPT = `【音箱播报规范 - 必须遵守】
-你是一个智能音箱助手，通过语音与用户交流。请遵守以下规范：
-
-📢 播报原则：
-1. 简短优先：单次播报控制在 100 字以内，超过请拆分或改用其他渠道
-2. 纯文字：只输出适合语音播报的纯文字，不要包含 URL、代码、复杂格式
-3. 自然口语：使用简短、清晰的口语表达，避免长句和复杂结构
-
-🚫 不适合播报的内容（应改用其他渠道）：
-- 代码片段、技术文档
-- 长篇文章、报告（>300 字）
-- 复杂数据表格、列表
-- 图片、视频、文件等多媒体内容
-- URL 链接、邮箱地址
-
-✅ 正确做法示例：
-- 短回复："好的，已为你设置明天早上 8 点的闹钟"
-- 长内容分流："由于内容较长，详细报告已发送到你的手机/微信，请查看"
-- 代码场景："代码已生成并发送到你的邮箱，请注意查收"
-- 多媒体场景："这张图片很有趣，已发送到你的手机查看"`;
-
-              // 构建 AI 看到的完整上下文
-              const contextInfo = `你正在通过小米音箱与用户对话。
-
-【会话上下文】
-- 设备：${deviceName}
-- 用户：${deviceName}
-- 消息 ID: ${deviceName}-${msg.timestamp}
-- 当前时间：${new Date(msg.timestamp).toLocaleString('zh-CN')}`;
-
-              // BodyForAgent: AI 实际看到的完整上下文（动态数据 + 系统提示 + 用户输入）
-              const agentBody = systemPrompts.length > 0
-                ? `${contextInfo}\n\n${systemPrompts.join("\n\n")}\n\n${msg.text}`
-                : `${contextInfo}\n\n${DEFAULT_SPEAKER_PROMPT}\n\n${msg.text}`;
-
-              // 构建上下文
-              const ctxPayload = pluginRuntime.channel.reply.finalizeInboundContext({
-                Body: body,
-                BodyForAgent: agentBody,
-                RawBody: msg.text,
-                CommandBody: msg.text,
-                From: fromAddress,
-                To: toAddress,
-                SessionKey: sessionKey,
-                AccountId: account.accountId,
-                ChatType: 'direct',
-                SenderId: deviceName,
-                SenderName: deviceName,
-                Provider: 'migpt',
-                Surface: 'migpt',
-                MessageSid: `${deviceName}-${msg.timestamp}`,
-                Timestamp: msg.timestamp,
-                OriginatingChannel: 'migpt',
-                OriginatingTo: toAddress,
-                CommandAuthorized: true,
-              });
-
-              // 分派消息到 OpenClaw
-              await pluginRuntime.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
-                ctx: ctxPayload,
-                cfg,
-                dispatcherOptions: {
-                  responsePrefix: '',
-                  deliver: async (payload: { text?: string; mediaUrls?: string[]; mediaUrl?: string }, info: { kind: string }) => {
-                    log?.info(`[migpt:${account.accountId}] deliver called, kind: ${info.kind}`);
-                    // 这里可以处理 AI 的回复并发送到音箱
-                    if (payload.text) {
-                      MiSpeaker.play({ text: payload.text });
-                    }
-                  },
+            // 分派消息到 OpenClaw
+            await pluginRuntime.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
+              ctx: ctxPayload,
+              cfg,
+              dispatcherOptions: {
+                responsePrefix: '',
+                deliver: async (payload: { text?: string; mediaUrls?: string[]; mediaUrl?: string }, info: { kind: string }) => {
+                  log?.info(`[migpt:${account.accountId}] deliver called, kind: ${info.kind}`);
+                  if (payload.text) {
+                    convMgr.replying = true;
+                    await MiSpeaker.play({ text: payload.text });
+                    convMgr.replying = false;
+                  }
                 },
-              });
-            }
-          } catch (err: any) {
+              },
+            });
+            convMgr.setResponding(false);
+          },
+          onSkip: (msg) => {
+            // 未命中唤醒词且非 KeepAlive 状态，跳过，由小爱自行处理
+            log?.info(`[migpt:${account.accountId}] Skipped (no wake word): "${msg.text.slice(0, 30)}"`);
+          },
+          onError: (err) => {
             log?.error(`[migpt:${account.accountId}] Error polling messages: ${err.message}`);
             ctx.setStatus({
               ...ctx.getStatus(),
               lastError: err.message,
             });
-          }
+          },
+        });
 
-          await sleep(heartbeat);
-        }
-
+        // 设备停止轮询时释放会话管理器资源
+        disposeConversationManager(deviceName);
         log?.info(`[migpt:${account.accountId}] Stopping poller for device: ${deviceName}`);
       });
 
